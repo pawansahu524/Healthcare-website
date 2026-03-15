@@ -1,0 +1,3685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VitalWatch — Health Monitoring System</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- jsPDF + html2canvas for PDF export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<!-- Leaflet Maps -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+/* ============================================================
+   CSS VARIABLES & RESET
+   ============================================================ */
+:root {
+  --bg:        #050a12;
+  --bg2:       #0b1420;
+  --bg3:       #0f1e30;
+  --border:    #1a2e45;
+  --accent:    #00d4ff;
+  --accent2:   #00ff88;
+  --accent3:   #ff4b6e;
+  --warn:      #ffa040;
+  --text:      #e8f0fe;
+  --text2:     #7a9ab5;
+  --card:      rgba(15,30,48,0.95);
+  --glow:      0 0 24px rgba(0,212,255,0.18);
+  --glow2:     0 0 24px rgba(0,255,136,0.18);
+  --font-mono: 'Space Mono', monospace;
+  --font-body: 'DM Sans', sans-serif;
+  --font-disp: 'Bebas Neue', sans-serif;
+  --r:         14px;
+  --r2:        8px;
+}
+
+/* LIGHT MODE */
+body.light-mode {
+  --bg:     #f0f4f8;
+  --bg2:    #e2e8f0;
+  --bg3:    #dde3ec;
+  --border: #b0bec5;
+  --accent:  #0077aa;
+  --accent2: #00875a;
+  --accent3: #d32f2f;
+  --warn:    #e65100;
+  --text:    #0d1b2a;
+  --text2:   #546e7a;
+  --card:    rgba(255,255,255,0.95);
+  --glow:    0 0 24px rgba(0,119,170,0.15);
+  --glow2:   0 0 24px rgba(0,135,90,0.15);
+}
+body.light-mode::before {
+  background-image:
+    linear-gradient(rgba(0,119,170,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,119,170,0.04) 1px, transparent 1px);
+}
+body.light-mode nav {
+  background: rgba(240,244,248,0.95);
+}
+body.light-mode .leaflet-tile-pane {
+  filter: none;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;font-size:16px;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-body);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+::-webkit-scrollbar{width:6px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+/* ============================================================
+   ANIMATED BG GRID
+   ============================================================ */
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ============================================================
+   NAVBAR
+   ============================================================ */
+nav{
+  position:sticky;
+  top:0;
+  z-index:1000;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 32px;
+  height:64px;
+  background:rgba(5,10,18,0.92);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+}
+.logo{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  text-decoration:none;
+}
+.logo-icon{
+  width:38px;height:38px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;
+  box-shadow:var(--glow);
+  flex-shrink:0;
+}
+.logo-text{
+  font-family:var(--font-disp);
+  font-size:26px;
+  letter-spacing:2px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.logo-sub{
+  font-family:var(--font-mono);
+  font-size:9px;
+  color:var(--text2);
+  letter-spacing:3px;
+  text-transform:uppercase;
+  display:block;
+  margin-top:-4px;
+}
+.nav-tabs{
+  display:flex;
+  gap:4px;
+  list-style:none;
+}
+.nav-tab{
+  padding:8px 20px;
+  border-radius:var(--r2);
+  cursor:pointer;
+  font-size:14px;
+  font-weight:500;
+  color:var(--text2);
+  transition:all .2s;
+  border:1px solid transparent;
+  user-select:none;
+}
+.nav-tab:hover{color:var(--text);background:var(--bg3);}
+.nav-tab.active{
+  color:var(--accent);
+  background:rgba(0,212,255,0.08);
+  border-color:rgba(0,212,255,0.25);
+}
+.rpi-badge{
+  display:flex;align-items:center;gap:8px;
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--text2);
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:6px 14px;
+}
+.rpi-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--accent3);
+  animation:pulse-red 2s infinite;
+}
+.rpi-dot.online{
+  background:var(--accent2);
+  animation:pulse-green 2s infinite;
+}
+@keyframes pulse-red{0%,100%{box-shadow:0 0 0 0 rgba(255,75,110,0.5);}50%{box-shadow:0 0 0 6px rgba(255,75,110,0);}}
+@keyframes pulse-green{0%,100%{box-shadow:0 0 0 0 rgba(0,255,136,0.5);}50%{box-shadow:0 0 0 6px rgba(0,255,136,0);}}
+
+/* ============================================================
+   PAGES
+   ============================================================ */
+.page{display:none;padding:24px 32px;position:relative;z-index:1;min-height:calc(100vh - 64px);}
+.page.active{display:block;}
+
+/* ============================================================
+   PAGE 1 — DASHBOARD
+   ============================================================ */
+.dash-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:24px;
+}
+.dash-title{
+  font-family:var(--font-disp);
+  font-size:36px;
+  letter-spacing:2px;
+  color:var(--text);
+}
+.dash-time{
+  font-family:var(--font-mono);
+  font-size:13px;
+  color:var(--text2);
+}
+.dash-time span{color:var(--accent);font-weight:700;}
+
+/* VITALS ROW */
+.vitals-row{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:16px;
+  margin-bottom:24px;
+}
+.vital-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:20px;
+  position:relative;
+  overflow:hidden;
+  transition:border-color .3s,box-shadow .3s;
+}
+.vital-card::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;
+  height:3px;
+  background:var(--card-accent,var(--accent));
+}
+.vital-card:hover{
+  border-color:var(--card-accent,var(--accent));
+  box-shadow:var(--glow);
+}
+.vital-label{
+  font-size:11px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:2px;
+  color:var(--text2);
+  margin-bottom:8px;
+}
+.vital-value{
+  font-family:var(--font-mono);
+  font-size:38px;
+  font-weight:700;
+  color:var(--card-accent,var(--accent));
+  line-height:1;
+}
+.vital-unit{
+  font-size:14px;
+  color:var(--text2);
+  margin-top:4px;
+}
+.vital-status{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:11px;
+  margin-top:8px;
+  padding:3px 10px;
+  border-radius:20px;
+  font-weight:600;
+}
+.vital-status.normal{background:rgba(0,255,136,0.12);color:var(--accent2);}
+.vital-status.warn{background:rgba(255,160,64,0.12);color:var(--warn);}
+.vital-status.danger{background:rgba(255,75,110,0.12);color:var(--accent3);}
+.vital-icon{
+  position:absolute;right:16px;top:50%;transform:translateY(-50%);
+  font-size:42px;opacity:0.07;
+}
+
+/* CHARTS ROW */
+.charts-row{
+  display:grid;
+  grid-template-columns:2fr 1fr;
+  gap:16px;
+  margin-bottom:24px;
+}
+.chart-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:20px;
+}
+.chart-title{
+  font-size:13px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:1.5px;
+  color:var(--text2);
+  margin-bottom:16px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.chart-badge{
+  font-size:10px;
+  padding:3px 10px;
+  border-radius:20px;
+  background:rgba(0,212,255,0.1);
+  color:var(--accent);
+  font-family:var(--font-mono);
+}
+.chart-wrap{position:relative;height:200px;}
+
+/* BOTTOM ROW */
+.bottom-row{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:16px;
+}
+.info-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:20px;
+}
+.info-title{
+  font-size:12px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:2px;
+  color:var(--text2);
+  margin-bottom:16px;
+}
+/* RPi status */
+.rpi-info-row{display:flex;flex-direction:column;gap:10px;}
+.rpi-info-item{
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:13px;
+}
+.rpi-info-item .k{color:var(--text2);}
+.rpi-info-item .v{font-family:var(--font-mono);color:var(--accent);font-size:12px;}
+/* Log */
+.log-list{display:flex;flex-direction:column;gap:6px;max-height:150px;overflow-y:auto;}
+.log-item{
+  font-size:11px;
+  font-family:var(--font-mono);
+  padding:6px 10px;
+  border-radius:var(--r2);
+  background:var(--bg3);
+  border-left:3px solid var(--border);
+  color:var(--text2);
+  display:flex;gap:8px;
+}
+.log-item.ok{border-color:var(--accent2);color:var(--text);}
+.log-item.warn{border-color:var(--warn);}
+.log-item.err{border-color:var(--accent3);}
+.log-time{color:var(--text2);flex-shrink:0;}
+/* Gauge */
+.gauge-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.gauge-svg{width:160px;height:90px;}
+.gauge-label{font-family:var(--font-mono);font-size:28px;font-weight:700;color:var(--accent2);}
+.gauge-sub{font-size:11px;color:var(--text2);text-align:center;}
+
+/* ============================================================
+   PAGE 2 — FIND DOCTOR
+   ============================================================ */
+.doctor-layout{
+  display:grid;
+  grid-template-columns:380px 1fr;
+  gap:20px;
+  height:calc(100vh - 130px);
+}
+.doctor-panel{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+.doctor-search{
+  padding:16px;
+  border-bottom:1px solid var(--border);
+}
+.search-input{
+  width:100%;
+  padding:10px 14px;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:var(--r2);
+  color:var(--text);
+  font-family:var(--font-body);
+  font-size:14px;
+  outline:none;
+  transition:border-color .2s;
+}
+.search-input:focus{border-color:var(--accent);}
+.search-input::placeholder{color:var(--text2);}
+.filter-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.filter-btn{
+  padding:5px 12px;
+  border-radius:20px;
+  font-size:11px;
+  font-weight:600;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--text2);
+  cursor:pointer;
+  transition:all .2s;
+  font-family:var(--font-body);
+}
+.filter-btn.active,.filter-btn:hover{
+  background:rgba(0,212,255,0.1);
+  border-color:var(--accent);
+  color:var(--accent);
+}
+.doctor-list{flex:1;overflow-y:auto;padding:12px;}
+.doctor-card{
+  padding:14px;
+  border:1px solid var(--border);
+  border-radius:var(--r2);
+  margin-bottom:10px;
+  cursor:pointer;
+  transition:all .2s;
+  background:var(--bg3);
+}
+.doctor-card:hover,.doctor-card.selected{
+  border-color:var(--accent);
+  background:rgba(0,212,255,0.05);
+}
+.doctor-card-top{display:flex;gap:12px;align-items:center;}
+.doctor-avatar{
+  width:44px;height:44px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;
+  flex-shrink:0;
+}
+.doctor-name{font-weight:600;font-size:14px;margin-bottom:2px;}
+.doctor-spec{font-size:12px;color:var(--accent);margin-bottom:4px;}
+.doctor-meta{display:flex;gap:12px;font-size:11px;color:var(--text2);}
+.star{color:#ffc107;}
+.tag{
+  display:inline-block;
+  padding:2px 8px;
+  border-radius:4px;
+  font-size:10px;
+  font-weight:600;
+  background:rgba(0,255,136,0.1);
+  color:var(--accent2);
+  margin-top:6px;
+}
+.tag.busy{background:rgba(255,75,110,0.1);color:var(--accent3);}
+
+/* MAP */
+.map-container{
+  border-radius:var(--r);
+  overflow:hidden;
+  border:1px solid var(--border);
+  position:relative;
+}
+#doctorMap{height:100%;width:100%;}
+.map-overlay{
+  position:absolute;
+  bottom:20px;right:20px;
+  z-index:999;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:16px;
+  min-width:280px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.5);
+  display:none;
+}
+.map-overlay.show{display:block;}
+.overlay-name{font-weight:700;font-size:16px;margin-bottom:4px;}
+.overlay-spec{color:var(--accent);font-size:13px;margin-bottom:12px;}
+.overlay-btns{display:flex;gap:8px;}
+.btn{
+  padding:9px 16px;
+  border-radius:var(--r2);
+  font-size:13px;
+  font-weight:600;
+  border:none;
+  cursor:pointer;
+  transition:all .2s;
+  font-family:var(--font-body);
+}
+.btn-primary{
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#000;
+}
+.btn-primary:hover{opacity:0.85;transform:translateY(-1px);}
+.btn-outline{
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--text);
+}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ============================================================
+   PAGE 3 — SEND HEALTH REPORT (Login/Patient Portal)
+   ============================================================ */
+.portal-layout{
+  max-width:900px;
+  margin:0 auto;
+}
+.portal-tabs{
+  display:flex;
+  gap:0;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:4px;
+  margin-bottom:24px;
+  width:fit-content;
+}
+.portal-tab{
+  padding:10px 28px;
+  border-radius:10px;
+  cursor:pointer;
+  font-size:14px;
+  font-weight:500;
+  color:var(--text2);
+  transition:all .2s;
+  user-select:none;
+}
+.portal-tab.active{
+  background:rgba(0,212,255,0.12);
+  color:var(--accent);
+}
+
+/* LOGIN */
+.auth-box{
+  max-width:420px;
+  margin:0 auto;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:36px;
+}
+.auth-title{
+  font-family:var(--font-disp);
+  font-size:28px;
+  letter-spacing:2px;
+  margin-bottom:6px;
+}
+.auth-sub{font-size:14px;color:var(--text2);margin-bottom:28px;}
+.form-group{margin-bottom:18px;}
+.form-label{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;display:block;}
+.form-input{
+  width:100%;
+  padding:12px 14px;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:var(--r2);
+  color:var(--text);
+  font-family:var(--font-body);
+  font-size:14px;
+  outline:none;
+  transition:border-color .2s;
+}
+.form-input:focus{border-color:var(--accent);}
+.btn-full{width:100%;padding:13px;margin-top:4px;}
+.auth-err{
+  display:none;
+  background:rgba(255,75,110,0.1);
+  border:1px solid rgba(255,75,110,0.3);
+  border-radius:var(--r2);
+  padding:10px 14px;
+  font-size:13px;
+  color:var(--accent3);
+  margin-bottom:16px;
+}
+.auth-err.show{display:block;}
+
+/* PATIENT PORTAL (after login) */
+.portal-content{display:none;}
+.portal-content.show{display:block;}
+
+.report-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:24px;
+  margin-bottom:20px;
+}
+.section-title{
+  font-family:var(--font-disp);
+  font-size:22px;
+  letter-spacing:2px;
+  margin-bottom:18px;
+  display:flex;align-items:center;gap:10px;
+}
+.section-title::after{
+  content:'';flex:1;height:1px;background:var(--border);
+}
+.health-snapshot{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+  margin-bottom:20px;
+}
+.snap-item{
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:var(--r2);
+  padding:14px;
+  text-align:center;
+}
+.snap-val{font-family:var(--font-mono);font-size:24px;font-weight:700;color:var(--accent);}
+.snap-lbl{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:4px;}
+
+.doctor-select{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+  margin-bottom:20px;
+}
+.doc-option{
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:var(--r2);
+  cursor:pointer;
+  transition:all .2s;
+  text-align:center;
+  background:var(--bg3);
+}
+.doc-option:hover,.doc-option.selected{
+  border-color:var(--accent2);
+  background:rgba(0,255,136,0.05);
+}
+.doc-option-name{font-size:13px;font-weight:600;margin-bottom:4px;}
+.doc-option-spec{font-size:11px;color:var(--accent);}
+
+.note-area{
+  width:100%;
+  min-height:100px;
+  padding:12px 14px;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:var(--r2);
+  color:var(--text);
+  font-family:var(--font-body);
+  font-size:14px;
+  resize:vertical;
+  outline:none;
+  transition:border-color .2s;
+}
+.note-area:focus{border-color:var(--accent);}
+.send-success{
+  display:none;
+  background:rgba(0,255,136,0.08);
+  border:1px solid rgba(0,255,136,0.25);
+  border-radius:var(--r);
+  padding:20px;
+  text-align:center;
+  margin-top:16px;
+}
+.send-success.show{display:block;}
+.send-success .icon{font-size:40px;margin-bottom:8px;}
+.send-success h3{color:var(--accent2);margin-bottom:4px;}
+
+/* ============================================================
+   PAGE 4 — DOCTOR VIEW (Secure)
+   ============================================================ */
+.doctor-view-layout{
+  display:grid;
+  grid-template-columns:300px 1fr;
+  gap:20px;
+}
+.patient-sidebar{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  overflow:hidden;
+}
+.sidebar-header{
+  padding:16px;
+  background:linear-gradient(135deg,rgba(0,212,255,0.1),rgba(0,255,136,0.05));
+  border-bottom:1px solid var(--border);
+  font-size:12px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:2px;
+  color:var(--text2);
+}
+.patient-item{
+  padding:14px 16px;
+  border-bottom:1px solid var(--border);
+  cursor:pointer;
+  transition:background .2s;
+  display:flex;align-items:center;gap:12px;
+}
+.patient-item:hover,.patient-item.active{background:rgba(0,212,255,0.05);}
+.patient-avi{
+  width:36px;height:36px;border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;color:#000;
+  flex-shrink:0;
+}
+.patient-name{font-size:14px;font-weight:600;margin-bottom:2px;}
+.patient-age{font-size:11px;color:var(--text2);}
+.unread-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--accent3);
+  margin-left:auto;
+  flex-shrink:0;
+}
+
+/* PATIENT RECORD */
+.record-area{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:24px;
+}
+.record-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:24px;
+  padding-bottom:16px;
+  border-bottom:1px solid var(--border);
+}
+.patient-big-name{font-size:22px;font-weight:700;}
+.patient-big-meta{font-size:13px;color:var(--text2);margin-top:3px;}
+.vitals-mini{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:10px;
+  margin-bottom:20px;
+}
+.vm-box{
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:var(--r2);
+  padding:12px;
+  text-align:center;
+}
+.vm-val{font-family:var(--font-mono);font-size:22px;color:var(--accent);}
+.vm-lbl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;}
+
+.messages-area{margin-top:16px;}
+.msg-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--text2);margin-bottom:12px;}
+.msg-list{display:flex;flex-direction:column;gap:10px;max-height:220px;overflow-y:auto;margin-bottom:12px;}
+.msg-bubble{
+  padding:12px 14px;
+  border-radius:var(--r2);
+  font-size:13px;
+  line-height:1.6;
+}
+.msg-bubble.patient{
+  background:var(--bg3);
+  border-left:3px solid var(--accent2);
+}
+.msg-bubble.doctor{
+  background:rgba(0,212,255,0.06);
+  border-left:3px solid var(--accent);
+}
+.msg-meta{font-size:10px;color:var(--text2);margin-bottom:4px;}
+.note-compose{
+  display:flex;gap:10px;
+  margin-top:8px;
+}
+.note-compose input{
+  flex:1;
+  padding:10px 14px;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:var(--r2);
+  color:var(--text);
+  font-family:var(--font-body);
+  font-size:13px;
+  outline:none;
+}
+.note-compose input:focus{border-color:var(--accent);}
+
+/* ============================================================
+   DOCTOR LOGIN OVERLAY
+   ============================================================ */
+#docLoginOverlay{
+  position:fixed;inset:0;
+  background:rgba(5,10,18,0.97);
+  z-index:2000;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);
+}
+#docLoginOverlay .auth-box{
+  border:1px solid rgba(0,212,255,0.3);
+  box-shadow:0 0 60px rgba(0,212,255,0.1);
+}
+#docLoginOverlay.hidden{display:none;}
+
+/* ============================================================
+   RESPONSIVE TWEAKS / UTILITIES
+   ============================================================ */
+.flex{display:flex;}
+.gap8{gap:8px;}
+.mt8{margin-top:8px;}
+.badge{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:10px;font-weight:700;
+  padding:3px 9px;border-radius:20px;
+  text-transform:uppercase;letter-spacing:1px;
+}
+.badge-cyan{background:rgba(0,212,255,0.1);color:var(--accent);border:1px solid rgba(0,212,255,0.2);}
+.badge-green{background:rgba(0,255,136,0.1);color:var(--accent2);border:1px solid rgba(0,255,136,0.2);}
+.badge-red{background:rgba(255,75,110,0.1);color:var(--accent3);border:1px solid rgba(255,75,110,0.2);}
+.badge-warn{background:rgba(255,160,64,0.1);color:var(--warn);border:1px solid rgba(255,160,64,0.2);}
+
+/* Chart canvas */
+canvas{display:block;}
+
+/* Leaflet dark overrides */
+.leaflet-container{background:#0b1420 !important;}
+.leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9);}
+.leaflet-popup-content-wrapper{
+  background:var(--card);
+  border:1px solid var(--border);
+  color:var(--text);
+  border-radius:var(--r2);
+  box-shadow:0 8px 24px rgba(0,0,0,0.6);
+}
+.leaflet-popup-tip{background:var(--card);}
+.leaflet-popup-content{font-family:var(--font-body);font-size:13px;}
+
+/* Gauge path */
+.gauge-bg{fill:none;stroke:var(--bg3);stroke-width:12;}
+.gauge-fill{fill:none;stroke:var(--accent2);stroke-width:12;stroke-linecap:round;transition:stroke-dashoffset 1s ease;}
+
+/* Animated number */
+@keyframes countUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+
+/* DARK/LIGHT TOGGLE */
+.theme-toggle{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:11px;color:var(--text2);cursor:pointer;user-select:none;}
+.toggle-track{position:relative;width:44px;height:24px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;transition:all .3s;cursor:pointer;flex-shrink:0;}
+body.light-mode .toggle-track{background:linear-gradient(135deg,#ffe082,#ffb300);border-color:#e6a817;}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--accent);transition:transform .3s,background .3s;display:flex;align-items:center;justify-content:center;font-size:9px;}
+body.light-mode .toggle-thumb{transform:translateX(20px);background:#fff5;}
+
+/* RPI POWER */
+.rpi-power-btn{display:flex;align-items:center;gap:7px;padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;font-family:var(--font-mono);font-size:11px;color:var(--text2);transition:all .2s;user-select:none;}
+.rpi-power-btn:hover{border-color:var(--accent3);color:var(--accent3);}
+.rpi-power-btn.powered{border-color:var(--accent2);color:var(--accent2);}
+.rpi-power-btn.powered:hover{border-color:var(--accent3);color:var(--accent3);}
+.power-icon{font-size:15px;transition:transform .3s;}
+.rpi-power-btn:hover .power-icon{transform:rotate(20deg);}
+
+/* OFFLINE OVERLAY */
+#rpiOfflineOverlay{display:none;position:fixed;inset:0;background:rgba(5,10,18,0.7);backdrop-filter:blur(6px);z-index:900;align-items:center;justify-content:center;}
+#rpiOfflineOverlay.show{display:flex;}
+.offline-banner{background:var(--card);border:2px solid var(--accent3);border-radius:var(--r);padding:36px 52px;text-align:center;box-shadow:0 0 60px rgba(255,75,110,0.25);}
+.offline-banner .ob-icon{font-size:52px;margin-bottom:14px;}
+.offline-banner h2{font-family:var(--font-disp);font-size:32px;letter-spacing:3px;color:var(--accent3);margin-bottom:8px;}
+.offline-banner p{font-size:13px;color:var(--text2);margin-bottom:20px;}
+.offline-banner .btn{pointer-events:all;}
+.nav-controls{display:flex;align-items:center;gap:10px;}
+
+/* LANGUAGE SELECTOR */
+.lang-select-wrap{position:relative;}
+.lang-btn{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 12px;border-radius:20px;
+  border:1px solid var(--border);background:var(--bg3);
+  cursor:pointer;font-family:var(--font-mono);font-size:11px;
+  color:var(--text2);transition:all .2s;user-select:none;
+}
+.lang-btn:hover{border-color:var(--accent);color:var(--accent);}
+.lang-dropdown{
+  display:none;position:absolute;top:calc(100% + 8px);right:0;
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r);min-width:170px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.5);z-index:2000;
+  overflow:hidden;
+}
+.lang-dropdown.show{display:block;}
+.lang-option{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;cursor:pointer;font-size:13px;
+  transition:background .15s;border-bottom:1px solid var(--border);
+}
+.lang-option:last-child{border-bottom:none;}
+.lang-option:hover{background:var(--bg3);}
+.lang-option.active{color:var(--accent);background:rgba(0,212,255,0.06);}
+.lang-flag{font-size:18px;flex-shrink:0;}
+.lang-name{font-weight:500;}
+.lang-native{font-size:11px;color:var(--text2);}
+
+/* VOICE RECOGNITION BUTTON */
+.voice-btn{
+  display:flex;align-items:center;gap:6px;
+  padding:7px 14px;border-radius:20px;
+  border:1px solid var(--border);background:var(--bg3);
+  cursor:pointer;font-family:var(--font-mono);font-size:11px;
+  color:var(--text2);transition:all .2s;user-select:none;
+}
+.voice-btn:hover{border-color:#a78bfa;color:#a78bfa;}
+.voice-btn.listening{
+  border-color:#a78bfa;
+  background:rgba(167,139,250,0.1);
+  color:#a78bfa;
+  animation:voicePulse 1s infinite;
+}
+@keyframes voicePulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(167,139,250,0.4);}
+  50%{box-shadow:0 0 0 8px rgba(167,139,250,0);}
+}
+.voice-mic{font-size:15px;}
+
+/* VOICE TRANSCRIPT OVERLAY */
+#voiceOverlay{
+  display:none;position:fixed;
+  bottom:24px;left:50%;transform:translateX(-50%);
+  background:rgba(15,30,48,0.97);border:1px solid #a78bfa;
+  border-radius:var(--r);padding:16px 24px;
+  min-width:320px;max-width:500px;
+  z-index:3000;box-shadow:0 8px 40px rgba(167,139,250,0.25);
+  text-align:center;font-family:var(--font-body);
+}
+#voiceOverlay.show{display:block;}
+#voiceOverlay .vo-mic{font-size:40px;margin-bottom:8px;animation:voicePulse 1s infinite;}
+#voiceOverlay .vo-title{font-size:13px;font-weight:700;color:#a78bfa;margin-bottom:6px;letter-spacing:1px;}
+#voiceOverlay .vo-text{font-size:15px;color:var(--text);min-height:24px;font-style:italic;}
+#voiceOverlay .vo-hint{font-size:11px;color:var(--text2);margin-top:8px;}
+#voiceOverlay .vo-stop{
+  margin-top:12px;padding:7px 20px;border-radius:20px;
+  border:1px solid rgba(167,139,250,0.4);background:rgba(167,139,250,0.1);
+  color:#a78bfa;cursor:pointer;font-size:12px;font-family:var(--font-body);
+}
+
+/* ============================================================
+   SKIN IMAGE CAPTURE FEATURE
+   ============================================================ */
+.skin-upload-zone{
+  border:2px dashed var(--border);
+  border-radius:var(--r);
+  padding:20px;
+  text-align:center;
+  cursor:pointer;
+  transition:all .25s;
+  background:var(--bg3);
+  position:relative;
+  overflow:hidden;
+}
+.skin-upload-zone:hover,.skin-upload-zone.dragover{
+  border-color:var(--accent);
+  background:rgba(0,212,255,0.05);
+}
+.skin-upload-zone .uz-icon{font-size:36px;margin-bottom:8px;}
+.skin-upload-zone .uz-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;}
+.skin-upload-zone .uz-sub{font-size:12px;color:var(--text2);}
+
+.skin-camera-btns{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;}
+.cam-btn{
+  flex:1;min-width:120px;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  padding:10px 16px;border-radius:var(--r2);
+  border:1px solid var(--border);background:var(--bg3);
+  color:var(--text);font-family:var(--font-body);font-size:13px;
+  font-weight:600;cursor:pointer;transition:all .2s;
+}
+.cam-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,0.06);}
+.cam-btn.active{border-color:var(--accent2);color:var(--accent2);background:rgba(0,255,136,0.06);}
+
+/* Camera preview */
+#cameraPreviewBox{
+  display:none;
+  margin-top:14px;
+  border-radius:var(--r);
+  overflow:hidden;
+  border:1px solid var(--border);
+  position:relative;
+  background:#000;
+}
+#cameraPreviewBox.show{display:block;}
+#cameraStream{width:100%;max-height:260px;object-fit:cover;display:block;}
+.cam-snap-btn{
+  position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+  padding:10px 28px;border-radius:20px;border:none;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#000;font-weight:700;font-size:13px;cursor:pointer;
+  font-family:var(--font-body);box-shadow:0 4px 16px rgba(0,212,255,0.35);
+  transition:all .2s;
+}
+.cam-snap-btn:hover{transform:translateX(-50%) translateY(-2px);box-shadow:0 6px 24px rgba(0,212,255,0.5);}
+.cam-switch-btn{
+  position:absolute;top:10px;right:10px;
+  padding:6px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.3);
+  background:rgba(0,0,0,0.5);color:#fff;font-size:11px;cursor:pointer;
+  font-family:var(--font-body);backdrop-filter:blur(4px);
+}
+
+/* Image previews grid */
+.skin-images-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));
+  gap:10px;margin-top:14px;
+}
+.skin-img-thumb{
+  position:relative;border-radius:var(--r2);overflow:hidden;
+  aspect-ratio:1;border:1px solid var(--border);
+  background:var(--bg3);
+}
+.skin-img-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.skin-img-thumb .thumb-remove{
+  position:absolute;top:4px;right:4px;
+  width:20px;height:20px;border-radius:50%;
+  background:rgba(255,75,110,0.85);border:none;
+  color:#fff;font-size:12px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  line-height:1;
+}
+.skin-img-thumb .thumb-label{
+  position:absolute;bottom:0;left:0;right:0;
+  background:rgba(0,0,0,0.6);font-size:9px;
+  color:#fff;text-align:center;padding:3px;
+}
+.skin-body-part{
+  display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;
+}
+.body-part-btn{
+  padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;
+  border:1px solid var(--border);background:transparent;
+  color:var(--text2);cursor:pointer;transition:all .2s;font-family:var(--font-body);
+}
+.body-part-btn.active,.body-part-btn:hover{
+  background:rgba(255,107,53,0.12);border-color:#ff6b35;color:#ff6b35;
+}
+
+/* Doctor view image display */
+.skin-report-imgs{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;}
+.skin-report-img{
+  width:100px;height:100px;border-radius:var(--r2);object-fit:cover;
+  border:1px solid var(--border);cursor:pointer;transition:transform .2s;
+}
+.skin-report-img:hover{transform:scale(1.05);}
+.img-lightbox{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,0.9);z-index:5000;
+  align-items:center;justify-content:center;
+  flex-direction:column;gap:16px;
+}
+.img-lightbox.show{display:flex;}
+.img-lightbox img{max-width:90vw;max-height:80vh;border-radius:var(--r);box-shadow:0 8px 40px rgba(0,0,0,0.8);}
+.img-lightbox-close{
+  padding:8px 24px;border-radius:20px;border:1px solid rgba(255,255,255,0.3);
+  background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:14px;
+  font-family:var(--font-body);
+}
+
+/* LOCATION PULSE ANIMATION */
+@keyframes locPulse{
+  0%  { transform:scale(1);   opacity:0.8; }
+  50% { transform:scale(2.2); opacity:0; }
+  100%{ transform:scale(1);   opacity:0; }
+}
+/* CHEMIST CARD EXTRAS */
+.chemist-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;
+  background:rgba(16,185,129,0.12);color:#10b981;
+  border:1px solid rgba(16,185,129,0.25);margin-top:6px;
+}
+.chemist-badge.closed{background:rgba(255,75,110,0.12);color:var(--accent3);border-color:rgba(255,75,110,0.25);}
+.chemist-link-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 12px;border-radius:var(--r2);font-size:11px;font-weight:600;
+  background:rgba(16,185,129,0.1);color:#10b981;
+  border:1px solid rgba(16,185,129,0.25);cursor:pointer;
+  text-decoration:none;transition:all .2s;margin-top:6px;margin-left:6px;
+  font-family:var(--font-body);
+}
+.chemist-link-btn:hover{background:rgba(16,185,129,0.22);transform:translateY(-1px);}
+.view-type-btns{
+  display:flex;gap:6px;
+  padding:12px 14px 0;
+  border-bottom:1px solid var(--border);
+}
+.view-type-btn{
+  flex:1;padding:8px;border-radius:var(--r2);
+  font-size:12px;font-weight:600;cursor:pointer;
+  border:1px solid var(--border);background:transparent;
+  color:var(--text2);transition:all .2s;font-family:var(--font-body);
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.view-type-btn.active{
+  background:rgba(0,212,255,0.08);
+  border-color:var(--accent);color:var(--accent);
+}
+.view-type-btn.chemist-active{
+  background:rgba(16,185,129,0.08);
+  border-color:#10b981;color:#10b981;
+}
+/* Chemist name search box */
+#chemistNameSearch{
+  width:100%;padding:9px 12px;margin-top:8px;
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:var(--r2);color:var(--text);
+  font-family:var(--font-body);font-size:13px;outline:none;
+  transition:border-color .2s;display:none;
+}
+#chemistNameSearch:focus{border-color:#10b981;}
+#chemistNameSearch.show{display:block;}
+/* Chemist overlay extras */
+.overlay-website{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 14px;border-radius:var(--r2);
+  background:rgba(16,185,129,0.1);color:#10b981;
+  border:1px solid rgba(16,185,129,0.25);
+  font-size:12px;font-weight:600;text-decoration:none;
+  transition:all .2s;cursor:pointer;
+}
+.overlay-website:hover{background:rgba(16,185,129,0.22);}
+
+/* LOCATE ME BUTTON */
+.locate-btn{
+  display:flex;align-items:center;gap:6px;
+  padding:7px 14px;border-radius:20px;
+  border:1px solid var(--border);background:var(--bg3);
+  cursor:pointer;font-family:var(--font-mono);font-size:11px;
+  color:var(--accent);transition:all .2s;user-select:none;
+}
+.locate-btn:hover{border-color:var(--accent);background:rgba(0,212,255,0.08);}
+.location-bar{
+  font-size:12px;color:var(--text2);
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:8px;padding:7px 14px;
+  font-family:var(--font-mono);
+  transition:color .3s;
+}
+
+/* PDF DOWNLOAD BUTTON */
+.pdf-btn{
+  display:flex;align-items:center;gap:7px;
+  padding:7px 16px;
+  border-radius:20px;
+  border:none;
+  background:linear-gradient(135deg,#e53e3e,#c53030);
+  cursor:pointer;
+  font-family:var(--font-mono);
+  font-size:11px;
+  font-weight:700;
+  color:#fff;
+  transition:all .2s;
+  user-select:none;
+  letter-spacing:0.5px;
+  box-shadow:0 2px 12px rgba(229,62,62,0.3);
+}
+.pdf-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(229,62,62,0.5);}
+.pdf-btn:active{transform:translateY(0);}
+.pdf-btn.loading{opacity:0.7;pointer-events:none;}
+
+/* PDF PREVIEW MODAL */
+#pdfModal{
+  display:none;
+  position:fixed;inset:0;
+  background:rgba(5,10,18,0.88);
+  backdrop-filter:blur(8px);
+  z-index:3000;
+  align-items:center;
+  justify-content:center;
+}
+#pdfModal.show{display:flex;}
+.pdf-modal-box{
+  background:#fff;
+  border-radius:16px;
+  width:680px;
+  max-height:90vh;
+  overflow-y:auto;
+  box-shadow:0 24px 80px rgba(0,0,0,0.6);
+  position:relative;
+}
+.pdf-modal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 24px;
+  border-bottom:1px solid #e2e8f0;
+  position:sticky;top:0;background:#fff;z-index:1;border-radius:16px 16px 0 0;
+}
+.pdf-modal-title{font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#0d1b2a;}
+.pdf-modal-actions{display:flex;gap:8px;}
+.pdf-close-btn{
+  padding:7px 14px;border-radius:8px;border:1px solid #e2e8f0;
+  background:#f7fafc;color:#546e7a;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;
+}
+.pdf-close-btn:hover{background:#e2e8f0;}
+.pdf-download-btn{
+  padding:7px 16px;border-radius:8px;border:none;
+  background:linear-gradient(135deg,#e53e3e,#c53030);color:#fff;
+  cursor:pointer;font-size:13px;font-weight:700;font-family:'DM Sans',sans-serif;
+}
+.pdf-download-btn:hover{opacity:0.9;}
+
+/* THE ACTUAL PDF CONTENT (white, printable) */
+#pdfContent{
+  padding:40px;
+  font-family:'DM Sans',sans-serif;
+  color:#0d1b2a;
+  background:#fff;
+}
+.pdf-top-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:24px;
+  padding-bottom:20px;
+  border-bottom:3px solid #0077aa;
+}
+.pdf-logo-area{display:flex;align-items:center;gap:12px;}
+.pdf-logo-icon{
+  width:48px;height:48px;
+  background:linear-gradient(135deg,#0077aa,#00875a);
+  border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;
+}
+.pdf-logo-name{font-size:26px;font-weight:900;color:#0077aa;letter-spacing:1px;}
+.pdf-logo-sub{font-size:11px;color:#546e7a;letter-spacing:2px;text-transform:uppercase;}
+.pdf-report-info{text-align:right;}
+.pdf-report-info .ri-title{font-size:18px;font-weight:700;color:#0d1b2a;}
+.pdf-report-info .ri-id{font-size:12px;color:#546e7a;margin-top:2px;font-family:'Space Mono',monospace;}
+.pdf-report-info .ri-date{font-size:11px;color:#546e7a;margin-top:2px;}
+
+.pdf-patient-box{
+  background:#f0f7ff;
+  border:1px solid #bee3f8;
+  border-radius:10px;
+  padding:16px 20px;
+  margin-bottom:24px;
+  display:flex;align-items:center;gap:16px;
+}
+.pdf-patient-avi{
+  width:52px;height:52px;border-radius:50%;
+  background:linear-gradient(135deg,#0077aa,#00875a);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:900;color:#fff;
+  flex-shrink:0;
+}
+.pdf-patient-name{font-size:17px;font-weight:700;color:#0d1b2a;}
+.pdf-patient-meta{font-size:12px;color:#546e7a;margin-top:2px;}
+
+.pdf-section-title{
+  font-size:13px;font-weight:700;text-transform:uppercase;
+  letter-spacing:2px;color:#546e7a;
+  margin-bottom:12px;margin-top:24px;
+  display:flex;align-items:center;gap:8px;
+}
+.pdf-section-title::after{content:'';flex:1;height:1px;background:#e2e8f0;}
+
+.pdf-vitals-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:12px;margin-bottom:8px;
+}
+.pdf-vital-box{
+  border:1px solid #e2e8f0;
+  border-radius:10px;
+  padding:14px;
+  text-align:center;
+  background:#fafbfc;
+}
+.pdf-vital-box.alert-warn{border-color:#f6ad55;background:#fffaf0;}
+.pdf-vital-box.alert-danger{border-color:#fc8181;background:#fff5f5;}
+.pdf-vital-box.alert-normal{border-color:#68d391;background:#f0fff4;}
+.pdf-vital-val{font-size:26px;font-weight:900;color:#0077aa;font-family:'Space Mono',monospace;}
+.pdf-vital-val.warn{color:#c05621;}
+.pdf-vital-val.danger{color:#c53030;}
+.pdf-vital-val.normal{color:#276749;}
+.pdf-vital-lbl{font-size:10px;color:#718096;text-transform:uppercase;letter-spacing:1px;margin-top:4px;}
+.pdf-vital-unit{font-size:10px;color:#a0aec0;margin-top:2px;}
+.pdf-vital-status{
+  font-size:10px;font-weight:700;
+  margin-top:6px;padding:2px 8px;
+  border-radius:20px;display:inline-block;
+}
+.pdf-vital-status.normal{background:#c6f6d5;color:#22543d;}
+.pdf-vital-status.warn{background:#feebc8;color:#7b341e;}
+.pdf-vital-status.danger{background:#fed7d7;color:#742a2a;}
+
+.pdf-history-table{
+  width:100%;border-collapse:collapse;
+  font-size:12px;margin-bottom:8px;
+}
+.pdf-history-table th{
+  background:#0077aa;color:#fff;
+  padding:8px 12px;text-align:left;
+  font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:1px;
+}
+.pdf-history-table td{
+  padding:7px 12px;
+  border-bottom:1px solid #e2e8f0;
+  color:#2d3748;
+  font-family:'Space Mono',monospace;font-size:11px;
+}
+.pdf-history-table tr:nth-child(even) td{background:#f7fafc;}
+
+.pdf-rpi-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:10px;margin-bottom:8px;
+}
+.pdf-rpi-item{
+  background:#f7fafc;border:1px solid #e2e8f0;
+  border-radius:8px;padding:10px 14px;
+}
+.pdf-rpi-key{font-size:10px;color:#718096;text-transform:uppercase;letter-spacing:1px;}
+.pdf-rpi-val{font-size:13px;font-weight:700;color:#0077aa;font-family:'Space Mono',monospace;margin-top:2px;}
+
+.pdf-notes-box{
+  background:#fffbeb;border:1px solid #f6e05e;
+  border-radius:8px;padding:14px 16px;
+  font-size:12px;color:#744210;line-height:1.6;
+}
+.pdf-footer{
+  margin-top:28px;
+  padding-top:16px;
+  border-top:1px solid #e2e8f0;
+  display:flex;justify-content:space-between;
+  align-items:center;
+  font-size:10px;color:#a0aec0;
+}
+.pdf-watermark{
+  font-size:10px;color:#cbd5e0;
+  text-align:center;
+  letter-spacing:1px;
+}
+.vital-value{animation:countUp .6s ease both;}
+
+/* Mobile nav fallback */
+@media(max-width:900px){
+  .vitals-row{grid-template-columns:repeat(2,1fr);}
+  .charts-row{grid-template-columns:1fr;}
+  .bottom-row{grid-template-columns:1fr 1fr;}
+  .doctor-layout{grid-template-columns:1fr;}
+  .doctor-panel{height:300px;}
+  .portal-layout{padding:0;}
+  .doctor-view-layout{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     NAVBAR
+     ============================================================ -->
+<nav>
+  <a class="logo" href="#" onclick="return false;">
+    <div class="logo-icon">♿</div>
+    <div>
+      <span class="logo-text">VitalWatch</span>
+      <span class="logo-sub">Health Monitoring System</span>
+    </div>
+  </a>
+  <ul class="nav-tabs">
+    <li class="nav-tab active" onclick="showPage('dashboard',this)">📊 Dashboard</li>
+    <li class="nav-tab" onclick="showPage('doctors',this)">🗺️ Find Doctors</li>
+    <li class="nav-tab" onclick="showPage('portal',this)">📤 Health Portal</li>
+    <li class="nav-tab" onclick="showPage('docview',this)">🩺 Doctor View</li>
+  </ul>
+  <div class="nav-controls">
+    <!-- Language Selector -->
+    <div class="lang-select-wrap" id="langWrap">
+      <button class="lang-btn" onclick="toggleLangDropdown()" id="langBtn">
+        <span id="langFlag">🇮🇳</span>
+        <span id="langCode">EN</span>
+        <span>▾</span>
+      </button>
+      <div class="lang-dropdown" id="langDropdown">
+        <div class="lang-option active" onclick="setLanguage('en','🇮🇳','EN')"><span class="lang-flag">🇮🇳</span><div><div class="lang-name">English</div><div class="lang-native">English</div></div></div>
+        <div class="lang-option" onclick="setLanguage('hi','🇮🇳','HI')"><span class="lang-flag">🇮🇳</span><div><div class="lang-name">Hindi</div><div class="lang-native">हिन्दी</div></div></div>
+        <div class="lang-option" onclick="setLanguage('mr','🇮🇳','MR')"><span class="lang-flag">🇮🇳</span><div><div class="lang-name">Marathi</div><div class="lang-native">मराठी</div></div></div>
+        <div class="lang-option" onclick="setLanguage('gu','🇮🇳','GU')"><span class="lang-flag">🇮🇳</span><div><div class="lang-name">Gujarati</div><div class="lang-native">ગુજરાતી</div></div></div>
+        <div class="lang-option" onclick="setLanguage('ta','🇮🇳','TA')"><span class="lang-flag">🇮🇳</span><div><div class="lang-name">Tamil</div><div class="lang-native">தமிழ்</div></div></div>
+        <div class="lang-option" onclick="setLanguage('te','🇮🇳','TE')"><span class="lang-flag">🇮🇳</span><div><div class="lang-name">Telugu</div><div class="lang-native">తెలుగు</div></div></div>
+        <div class="lang-option" onclick="setLanguage('bn','🇧🇩','BN')"><span class="lang-flag">🇧🇩</span><div><div class="lang-name">Bengali</div><div class="lang-native">বাংলা</div></div></div>
+        <div class="lang-option" onclick="setLanguage('kn','🇮🇳','KN')"><span class="lang-flag">🇮🇳</span><div><div class="lang-name">Kannada</div><div class="lang-native">ಕನ್ನಡ</div></div></div>
+        <div class="lang-option" onclick="setLanguage('es','🇪🇸','ES')"><span class="lang-flag">🇪🇸</span><div><div class="lang-name">Spanish</div><div class="lang-native">Español</div></div></div>
+        <div class="lang-option" onclick="setLanguage('fr','🇫🇷','FR')"><span class="lang-flag">🇫🇷</span><div><div class="lang-name">French</div><div class="lang-native">Français</div></div></div>
+        <div class="lang-option" onclick="setLanguage('ar','🇸🇦','AR')"><span class="lang-flag">🇸🇦</span><div><div class="lang-name">Arabic</div><div class="lang-native">العربية</div></div></div>
+        <div class="lang-option" onclick="setLanguage('zh','🇨🇳','ZH')"><span class="lang-flag">🇨🇳</span><div><div class="lang-name">Chinese</div><div class="lang-native">中文</div></div></div>
+      </div>
+    </div>
+
+    <!-- Voice Recognition Button -->
+    <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()" title="Voice Input">
+      <span class="voice-mic">🎙️</span>
+      <span id="voiceBtnLabel">Voice</span>
+    </button>
+
+    <!-- Dark / Light Mode Toggle -->
+    <div class="theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
+      <span id="themeLabel">🌙 Dark</span>
+      <div class="toggle-track" id="toggleTrack">
+        <div class="toggle-thumb" id="toggleThumb">🌙</div>
+      </div>
+    </div>
+    <!-- PDF Download Button -->
+    <button class="pdf-btn" id="pdfBtn" onclick="openPdfPreview()" title="Download Vital Report as PDF">
+      <span>📄</span>
+      <span id="pdfBtnLabel">PDF Report</span>
+    </button>
+
+    <!-- RPi Power Button -->
+    <button class="rpi-power-btn powered" id="rpiPowerBtn" onclick="toggleRPi()" title="Toggle RPi Power">
+      <span class="power-icon">⏻</span>
+      <span id="rpiPowerLabel">RPi ON</span>
+    </button>
+    <!-- RPi Status Badge -->
+    <div class="rpi-badge">
+      <div class="rpi-dot" id="rpiDot"></div>
+      <span id="rpiStatus">RPi: Connecting...</span>
+    </div>
+  </div>
+</nav>
+
+<!-- Voice Overlay -->
+<div id="voiceOverlay">
+  <div class="vo-mic">🎙️</div>
+  <div class="vo-title" id="voiceTitle">LISTENING...</div>
+  <div class="vo-text" id="voiceText">Say something...</div>
+  <div class="vo-hint" id="voiceHint">Speak in your selected language</div>
+  <button class="vo-stop" onclick="stopVoice()">■ Stop</button>
+</div>
+
+<!-- RPi Offline Overlay -->
+<div id="rpiOfflineOverlay">
+  <div class="offline-banner">
+    <div class="ob-icon">📡</div>
+    <h2>RPi DISCONNECTED</h2>
+    <p>Raspberry Pi has been powered off.<br>Sensor data streaming has stopped.</p>
+    <button class="btn btn-primary" onclick="toggleRPi()">⏻ Power ON RPi</button>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     PDF REPORT MODAL
+     ============================================================ -->
+<div id="pdfModal">
+  <div class="pdf-modal-box">
+    <div class="pdf-modal-header">
+      <div class="pdf-modal-title">📄 Vital Health Report Preview</div>
+      <div class="pdf-modal-actions">
+        <button class="pdf-close-btn" onclick="closePdfModal()">✕ Close</button>
+        <button class="pdf-download-btn" id="pdfDownloadBtn" onclick="downloadPDF()">⬇️ Download PDF</button>
+      </div>
+    </div>
+    <!-- This div gets converted to PDF -->
+    <div id="pdfContent">
+      <!-- Dynamically filled by JS -->
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     PAGE 1: DASHBOARD
+     ============================================================ -->
+<div class="page active" id="page-dashboard">
+  <div class="dash-header">
+    <div>
+      <div class="dash-title">LIVE VITALS MONITOR</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px;">Raspberry Pi Sensor Hub • Real-time streaming</div>
+    </div>
+    <div class="dash-time">
+      <div>Last update: <span id="lastUpdate">--:--:--</span></div>
+      <div style="margin-top:4px;">Patient: <span style="color:var(--text);">Rahul Sharma</span> | ID: <span>VW-2024-001</span></div>
+    </div>
+  </div>
+
+  <!-- VITALS CARDS -->
+  <div class="vitals-row">
+    <div class="vital-card" style="--card-accent:var(--accent3)">
+      <div class="vital-icon">❤️</div>
+      <div class="vital-label">Heart Rate</div>
+      <div class="vital-value" id="hrVal">--</div>
+      <div class="vital-unit">BPM · MAX30102</div>
+      <div class="vital-status" id="hrStatus">● Measuring...</div>
+    </div>
+    <div class="vital-card" style="--card-accent:var(--warn)">
+      <div class="vital-icon">🩸</div>
+      <div class="vital-label">Blood Pressure</div>
+      <div class="vital-value" id="bpVal" style="font-size:28px;margin-top:6px;">--/--</div>
+      <div class="vital-unit">mmHg · MAX30102</div>
+      <div class="vital-status" id="bpStatus">● Measuring...</div>
+    </div>
+    <div class="vital-card" style="--card-accent:#ff6b35">
+      <div class="vital-icon">🌡️</div>
+      <div class="vital-label">Temperature</div>
+      <div class="vital-value" id="tempVal">--</div>
+      <div class="vital-unit">°C · DHT22</div>
+      <div class="vital-status" id="tempStatus">● Measuring...</div>
+    </div>
+    <div class="vital-card" style="--card-accent:var(--accent2)">
+      <div class="vital-icon">💧</div>
+      <div class="vital-label">SpO₂ (Blood O₂)</div>
+      <div class="vital-value" id="spo2Val">--</div>
+      <div class="vital-unit">% · MAX30102</div>
+      <div class="vital-status" id="spo2Status">● Measuring...</div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-title">
+        Heart Rate History
+        <span class="chart-badge" id="hrLiveTag">● LIVE</span>
+      </div>
+      <div class="chart-wrap"><canvas id="hrChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Temperature Trend</div>
+      <div class="chart-wrap"><canvas id="tempChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM ROW -->
+  <div class="bottom-row">
+    <!-- RPi Status -->
+    <div class="info-card">
+      <div class="info-title">🟢 RPi Connection Status</div>
+      <div class="rpi-info-row">
+        <div class="rpi-info-item"><span class="k">Device</span><span class="v">Raspberry Pi 4B</span></div>
+        <div class="rpi-info-item"><span class="k">IP Address</span><span class="v" id="rpiIP">192.168.1.105</span></div>
+        <div class="rpi-info-item"><span class="k">Status</span><span class="v" id="rpiConnStatus" style="color:var(--accent2)">ONLINE</span></div>
+        <div class="rpi-info-item"><span class="k">Uptime</span><span class="v" id="rpiUptime">00:00:00</span></div>
+        <div class="rpi-info-item"><span class="k">CPU Temp</span><span class="v" id="rpiCPU">--°C</span></div>
+        <div class="rpi-info-item"><span class="k">Sensors</span><span class="v">DHT22, MAX30102</span></div>
+        <div class="rpi-info-item"><span class="k">Data Rate</span><span class="v">1 Hz</span></div>
+      </div>
+    </div>
+
+    <!-- Event Log -->
+    <div class="info-card">
+      <div class="info-title">📋 Sensor Event Log</div>
+      <div class="log-list" id="eventLog"></div>
+    </div>
+
+    <!-- SpO2 Gauge -->
+    <div class="info-card">
+      <div class="info-title">💧 SpO₂ Gauge</div>
+      <div class="gauge-wrap">
+        <svg class="gauge-svg" viewBox="0 0 160 90">
+          <path class="gauge-bg" d="M 20 80 A 60 60 0 0 1 140 80"/>
+          <path class="gauge-fill" id="gaugePath" d="M 20 80 A 60 60 0 0 1 140 80"
+            stroke-dasharray="188.5"
+            stroke-dashoffset="188.5"/>
+        </svg>
+        <div class="gauge-label" id="gaugeVal">--%</div>
+        <div class="gauge-sub">Blood Oxygen Saturation<br><span id="gaugeNote" style="color:var(--accent2)">Normal Range: 95–100%</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     PAGE 2: FIND DOCTORS
+     ============================================================ -->
+<div class="page" id="page-doctors">
+  <div style="margin-bottom:20px;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div>
+      <div style="font-family:var(--font-disp);font-size:32px;letter-spacing:2px;">FIND NEAREST DOCTORS</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px;">Real-time map • Contact directly • Share your health report</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div class="location-bar" id="userLocationBar">📍 Detecting your location...</div>
+      <button class="locate-btn" onclick="recenterToUser()" title="Go to my location">
+        <span>🎯</span><span>Locate Me</span>
+      </button>
+    </div>
+  </div>
+  <div class="doctor-layout">
+    <div class="doctor-panel">
+      <!-- View Type Toggle: Doctors / Chemists -->
+      <div class="view-type-btns">
+        <button class="view-type-btn active" id="viewDoctorBtn" onclick="switchMapView('doctor')">👨‍⚕️ Doctors</button>
+        <button class="view-type-btn" id="viewChemistBtn" onclick="switchMapView('chemist')">💊 Chemists</button>
+      </div>
+
+      <div class="doctor-search">
+        <input type="text" class="search-input" placeholder="🔍  Search by name or specialty..." id="docSearch" oninput="filterDoctors()">
+
+        <!-- Doctor filters (shown in doctor mode) -->
+        <div class="filter-row" id="filterRow">
+          <button class="filter-btn active" onclick="setFilter('All',this)">All</button>
+          <button class="filter-btn" onclick="setFilter('Cardiologist',this)">❤️ Cardio</button>
+          <button class="filter-btn" onclick="setFilter('General',this)">🩺 General</button>
+          <button class="filter-btn" onclick="setFilter('Neurologist',this)">🧠 Neuro</button>
+          <button class="filter-btn" onclick="setFilter('Diabetologist',this)">💉 Diabetes</button>
+        </div>
+
+        <!-- Chemist name search (shown in chemist mode) -->
+        <input type="text" id="chemistNameSearch" placeholder="💊 Search chemist by name..." oninput="filterChemists()">
+
+        <!-- Chemist category filters -->
+        <div class="filter-row" id="chemistFilterRow" style="display:none;">
+          <button class="filter-btn active" onclick="setChemistFilter('All',this)">All</button>
+          <button class="filter-btn" onclick="setChemistFilter('24hr',this)">🌙 24 Hours</button>
+          <button class="filter-btn" onclick="setChemistFilter('Ayurvedic',this)">🌿 Ayurvedic</button>
+          <button class="filter-btn" onclick="setChemistFilter('Online',this)">🛒 Online</button>
+        </div>
+      </div>
+
+      <div class="doctor-list" id="doctorList"></div>
+    </div>
+    <div class="map-container">
+      <div id="doctorMap"></div>
+      <div class="map-overlay" id="mapOverlay">
+        <div class="overlay-name" id="ovName">—</div>
+        <div class="overlay-spec" id="ovSpec">—</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;" id="ovMeta">—</div>
+        <div id="ovWebsiteRow" style="display:none;margin-bottom:10px;">
+          <a class="overlay-website" id="ovWebsiteLink" href="#" target="_blank" rel="noopener">🔗 Visit Website</a>
+        </div>
+        <div class="overlay-btns">
+          <button class="btn btn-primary" id="ovCallBtn" onclick="callDoctor()">📞 Call</button>
+          <button class="btn btn-outline" id="ovReportBtn" onclick="sendReportToDoc()">📤 Send Report</button>
+          <button class="btn btn-outline" onclick="document.getElementById('mapOverlay').classList.remove('show')">✕</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     PAGE 3: HEALTH PORTAL (Patient)
+     ============================================================ -->
+<div class="page" id="page-portal">
+  <div style="margin-bottom:20px;">
+    <div style="font-family:var(--font-disp);font-size:32px;letter-spacing:2px;">PATIENT HEALTH PORTAL</div>
+    <div style="font-size:13px;color:var(--text2);margin-top:4px;">Login to send your health data to your doctor securely</div>
+  </div>
+
+  <!-- Login form -->
+  <div id="patientLogin">
+    <div class="auth-box">
+      <div class="auth-title">Patient Login</div>
+      <div class="auth-sub">Access your personal health portal</div>
+      <div class="auth-err" id="patientErr">Invalid credentials. Please try again.</div>
+      <div class="form-group">
+        <label class="form-label">Patient ID</label>
+        <input class="form-input" id="patId" type="text" placeholder="e.g. VW-2024-001">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" id="patPass" type="password" placeholder="Enter your password">
+      </div>
+      <button class="btn btn-primary btn-full" onclick="patientLogin()">Login to Portal →</button>
+      <div style="margin-top:16px;font-size:12px;color:var(--text2);text-align:center;">
+        Demo: ID = <b style="color:var(--accent)">VW-2024-001</b> | Password = <b style="color:var(--accent)">patient123</b>
+      </div>
+    </div>
+  </div>
+
+  <!-- Portal after login -->
+  <div class="portal-content portal-layout" id="patientPortal">
+    <div class="report-card">
+      <div class="section-title">📊 Your Current Vitals Snapshot</div>
+      <div class="health-snapshot">
+        <div class="snap-item"><div class="snap-val" id="sHR">--</div><div class="snap-lbl">Heart Rate</div></div>
+        <div class="snap-item"><div class="snap-val" id="sBP" style="font-size:18px;margin-top:3px;">--/--</div><div class="snap-lbl">Blood Pressure</div></div>
+        <div class="snap-item"><div class="snap-val" id="sTemp">--</div><div class="snap-lbl">Temp °C</div></div>
+        <div class="snap-item"><div class="snap-val" id="sSpO2">--</div><div class="snap-lbl">SpO₂ %</div></div>
+      </div>
+      <div style="font-size:12px;color:var(--text2);">Readings are pulled from your connected RPi sensor. Always-on monitoring active.</div>
+    </div>
+
+    <div class="report-card">
+      <div class="section-title">🩺 Select Doctor</div>
+      <div class="doctor-select" id="docSelect"></div>
+    </div>
+
+    <div class="report-card">
+      <div class="section-title">📝 Personal Note to Doctor</div>
+      <div style="position:relative;">
+        <textarea class="note-area" id="patientNote" placeholder="Describe your symptoms, concerns, or any additional information you want your doctor to know..." style="padding-right:50px;"></textarea>
+        <button onclick="startNoteVoice()" id="noteVoiceBtn" title="Speak your note"
+          style="position:absolute;right:10px;top:10px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.3);border-radius:8px;padding:6px 8px;cursor:pointer;font-size:18px;transition:all .2s;"
+          onmouseover="this.style.background='rgba(167,139,250,0.25)'"
+          onmouseout="this.style.background='rgba(167,139,250,0.1)'">🎙️</button>
+      </div>
+
+      <!-- ── SKIN / BODY IMAGE CAPTURE ── -->
+      <div style="margin-top:18px;">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--text2);margin-bottom:10px;">
+          📷 Attach Skin / Body Images <span style="font-weight:400;font-size:11px;">(optional)</span>
+        </div>
+
+        <!-- Body part selector -->
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">Select affected area:</div>
+        <div class="skin-body-part" id="bodyPartBtns">
+          <button class="body-part-btn active" onclick="selectBodyPart('General',this)">🔵 General</button>
+          <button class="body-part-btn" onclick="selectBodyPart('Face',this)">😶 Face</button>
+          <button class="body-part-btn" onclick="selectBodyPart('Arm',this)">💪 Arm</button>
+          <button class="body-part-btn" onclick="selectBodyPart('Leg',this)">🦵 Leg</button>
+          <button class="body-part-btn" onclick="selectBodyPart('Back',this)">🫁 Back</button>
+          <button class="body-part-btn" onclick="selectBodyPart('Chest',this)">🫀 Chest</button>
+          <button class="body-part-btn" onclick="selectBodyPart('Hand',this)">✋ Hand</button>
+          <button class="body-part-btn" onclick="selectBodyPart('Foot',this)">🦶 Foot</button>
+        </div>
+
+        <!-- Camera / Upload buttons -->
+        <div class="skin-camera-btns">
+          <button class="cam-btn" onclick="openCamera('front')">📷 Front Camera</button>
+          <button class="cam-btn" onclick="openCamera('back')">📸 Back Camera</button>
+          <button class="cam-btn" onclick="document.getElementById('skinFileInput').click()">🖼️ Upload Image</button>
+        </div>
+        <input type="file" id="skinFileInput" accept="image/*" multiple style="display:none" onchange="handleFileUpload(event)">
+
+        <!-- Live camera preview -->
+        <div id="cameraPreviewBox">
+          <video id="cameraStream" autoplay playsinline muted></video>
+          <button class="cam-switch-btn" onclick="switchCamera()">🔄 Flip</button>
+          <button class="cam-snap-btn" onclick="captureSnapshot()">📸 Capture</button>
+        </div>
+        <canvas id="snapCanvas" style="display:none;"></canvas>
+
+        <!-- Upload drop zone (shown when no images) -->
+        <div class="skin-upload-zone" id="skinDropZone" onclick="document.getElementById('skinFileInput').click()"
+          ondragover="event.preventDefault();this.classList.add('dragover')"
+          ondragleave="this.classList.remove('dragover')"
+          ondrop="handleFileDrop(event)">
+          <div class="uz-icon">🩺</div>
+          <div class="uz-title">Drop images here or click to browse</div>
+          <div class="uz-sub">Supports JPG, PNG, HEIC • Max 5MB per image</div>
+        </div>
+
+        <!-- Captured / uploaded images grid -->
+        <div class="skin-images-grid" id="skinImagesGrid"></div>
+        <div id="skinImgCount" style="font-size:11px;color:var(--text2);margin-top:6px;"></div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;">
+        <div style="font-size:12px;color:var(--text2);">🔒 Encrypted and sent securely. Only your selected doctor can view this.</div>
+        <button class="btn btn-primary" onclick="sendHealthReport()">Send Health Report →</button>
+      </div>
+      <div class="send-success" id="sendSuccess">
+        <div class="icon">✅</div>
+        <h3>Report Sent Successfully!</h3>
+        <p style="font-size:13px;color:var(--text2);">Your doctor has been notified and can view your health data.</p>
+      </div>
+    </div>
+
+    <!-- Received notes from doctor -->
+    <div class="report-card">
+      <div class="section-title">💬 Messages from Doctor</div>
+      <div id="patientMsgs" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     PAGE 4: DOCTOR VIEW (Secure)
+     ============================================================ -->
+<div class="page" id="page-docview">
+  <!-- Doctor Login Overlay -->
+  <div id="docLoginOverlay">
+    <div class="auth-box">
+      <div class="auth-title">🩺 Doctor Login</div>
+      <div class="auth-sub">Secure access — patient data is protected</div>
+      <div class="auth-err" id="docErr">Invalid credentials.</div>
+      <div class="form-group">
+        <label class="form-label">Doctor ID</label>
+        <input class="form-input" id="docId" type="text" placeholder="e.g. DR-001">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" id="docPass" type="password" placeholder="Enter password">
+      </div>
+      <button class="btn btn-primary btn-full" onclick="doctorLogin()">Secure Login →</button>
+      <div style="margin-top:16px;font-size:12px;color:var(--text2);text-align:center;">
+        Demo: ID = <b style="color:var(--accent)">DR-001</b> | Password = <b style="color:var(--accent)">doctor123</b>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <div style="font-family:var(--font-disp);font-size:32px;letter-spacing:2px;">DOCTOR DASHBOARD</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px;">Patient records • Health reports • Secure messaging</div>
+    </div>
+    <button class="btn btn-outline" onclick="doctorLogout()">🚪 Logout</button>
+  </div>
+
+  <div class="doctor-view-layout">
+    <div class="patient-sidebar">
+      <div class="sidebar-header">Your Patients</div>
+      <div id="patientSidebarList"></div>
+    </div>
+    <div class="record-area" id="patientRecord">
+      <div style="text-align:center;padding:40px;color:var(--text2);">
+        <div style="font-size:48px;margin-bottom:12px;">👈</div>
+        <div>Select a patient to view their health record</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+/* ============================================================
+   APP STATE (in-memory, no localStorage)
+   ============================================================ */
+const APP = {
+  rpiOnline: false,
+  uptime: 0,
+  sensorData: { hr: 0, sbp: 0, dbp: 0, temp: 0, spo2: 0 },
+  history: { hr: [], temp: [], labels: [] },
+  filter: 'All',
+  docFilter: null, // selected doctor on map page
+  selectedPatient: 0,
+  patientLoggedIn: false,
+  doctorLoggedIn: false,
+  selectedDocForReport: null,
+
+  // Credentials (plain-text for demo — in production use hashed + backend)
+  creds: {
+    patients: [{ id: 'VW-2024-001', pass: 'patient123', name: 'Rahul Sharma', age: 34 }],
+    doctors:  [{ id: 'DR-001', pass: 'doctor123', name: 'Dr. Priya Patel' }]
+  },
+
+  // Messages store (per patient, per doctor)
+  messages: {
+    'VW-2024-001': [
+      { from: 'doctor', text: 'Hello Rahul, your BP readings look slightly elevated. Please reduce salt intake.', time: '10:32 AM' }
+    ]
+  },
+
+  // Health reports sent by patients
+  reports: []
+};
+
+/* ============================================================
+   DOCTORS DATA
+   ============================================================ */
+const DOCTORS = [
+  { id:1, name:'Dr. Priya Patel',   spec:'Cardiologist',   dist:'0.8 km', rating:4.9, avail:true,  phone:'+91-9876543210', lat:19.244, lng:73.135, emoji:'👩‍⚕️', color:'#ff6b9d' },
+  { id:2, name:'Dr. Arun Mehta',    spec:'General Physician',dist:'1.2 km',rating:4.7,avail:true,  phone:'+91-9876543211', lat:19.248, lng:73.130, emoji:'👨‍⚕️', color:'#4ecdc4' },
+  { id:3, name:'Dr. Sunita Rao',    spec:'Neurologist',    dist:'2.1 km', rating:4.8, avail:false, phone:'+91-9876543212', lat:19.240, lng:73.140, emoji:'👩‍⚕️', color:'#a78bfa' },
+  { id:4, name:'Dr. Rajan Gupta',   spec:'Diabetologist',  dist:'1.5 km', rating:4.6, avail:true,  phone:'+91-9876543213', lat:19.252, lng:73.128, emoji:'👨‍⚕️', color:'#fb923c' },
+  { id:5, name:'Dr. Kavya Nair',    spec:'General Physician',dist:'0.5 km',rating:4.5,avail:true,  phone:'+91-9876543214', lat:19.246, lng:73.138, emoji:'👩‍⚕️', color:'#34d399' },
+  { id:6, name:'Dr. Vikram Joshi',  spec:'Cardiologist',   dist:'3.0 km', rating:4.8, avail:false, phone:'+91-9876543215', lat:19.238, lng:73.133, emoji:'👨‍⚕️', color:'#f87171' },
+];
+
+/* ============================================================
+   CHEMISTS DATA
+   ============================================================ */
+const CHEMISTS = [
+  {
+    id:101, name:'Apollo Pharmacy',      type:'Chemist', category:'24hr',
+    dist:'0.4 km', rating:4.8, open:true,
+    phone:'+91-9800001111', lat:19.2455, lng:73.1360,
+    color:'#10b981', emoji:'💊',
+    address:'Shop 12, MG Road, Kalyan West',
+    website:'https://www.apollopharmacy.in',
+    hours:'Open 24 Hours'
+  },
+  {
+    id:102, name:'MedPlus Chemist',       type:'Chemist', category:'24hr',
+    dist:'0.9 km', rating:4.6, open:true,
+    phone:'+91-9800002222', lat:19.2430, lng:73.1340,
+    color:'#10b981', emoji:'💊',
+    address:'Near Railway Station, Kalyan',
+    website:'https://www.medplusmart.com',
+    hours:'Open 24 Hours'
+  },
+  {
+    id:103, name:'Netmeds Store',         type:'Chemist', category:'Online',
+    dist:'1.1 km', rating:4.5, open:true,
+    phone:'+91-9800003333', lat:19.2470, lng:73.1325,
+    color:'#6366f1', emoji:'🛒',
+    address:'Plot 5, Station Road, Kalyan',
+    website:'https://www.netmeds.com',
+    hours:'9 AM – 10 PM'
+  },
+  {
+    id:104, name:'1mg Pharmacy',          type:'Chemist', category:'Online',
+    dist:'1.3 km', rating:4.7, open:true,
+    phone:'+91-9800004444', lat:19.2435, lng:73.1370,
+    color:'#6366f1', emoji:'🛒',
+    address:'Kalyan East, Near Bus Stop',
+    website:'https://www.1mg.com',
+    hours:'8 AM – 11 PM'
+  },
+  {
+    id:105, name:'Shree Ram Medical',     type:'Chemist', category:'General',
+    dist:'0.6 km', rating:4.4, open:true,
+    phone:'+91-9800005555', lat:19.2460, lng:73.1345,
+    color:'#f59e0b', emoji:'🏥',
+    address:'Shivaji Chowk, Kalyan West',
+    website:'',
+    hours:'8 AM – 10 PM'
+  },
+  {
+    id:106, name:'Patanjali Wellness',    type:'Chemist', category:'Ayurvedic',
+    dist:'1.8 km', rating:4.3, open:false,
+    phone:'+91-9800006666', lat:19.2415, lng:73.1355,
+    color:'#84cc16', emoji:'🌿',
+    address:'Durga Nagar, Kalyan',
+    website:'https://www.patanjaliayurved.net',
+    hours:'9 AM – 8 PM'
+  },
+  {
+    id:107, name:'Himalaya Drug Store',   type:'Chemist', category:'Ayurvedic',
+    dist:'2.2 km', rating:4.5, open:true,
+    phone:'+91-9800007777', lat:19.2500, lng:73.1310,
+    color:'#84cc16', emoji:'🌿',
+    address:'Birla College Road, Kalyan',
+    website:'https://www.himalayawellness.in',
+    hours:'9 AM – 9 PM'
+  },
+  {
+    id:108, name:'PharmEasy Point',       type:'Chemist', category:'Online',
+    dist:'0.7 km', rating:4.6, open:true,
+    phone:'+91-9800008888', lat:19.2442, lng:73.1380,
+    color:'#6366f1', emoji:'🛒',
+    address:'Near Kalyan Court, Kalyan East',
+    website:'https://www.pharmeasy.in',
+    hours:'8 AM – 11 PM'
+  },
+];
+
+APP.mapView        = 'doctor'; // 'doctor' | 'chemist'
+APP.chemistFilter  = 'All';
+APP.chemistMarkers = [];
+
+/* ============================================================
+   PAGE NAVIGATION
+   ============================================================ */
+function showPage(name, tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if(tab) tab.classList.add('active');
+
+  if(name === 'doctors') initMap();
+  if(name === 'portal')  renderPortal();
+  if(name === 'docview') renderDocView();
+}
+
+/* ============================================================
+   MOCK SENSOR DATA SIMULATION (RPi)
+   Replace these functions with actual WebSocket / fetch calls
+   ============================================================ */
+function generateSensorData() {
+  // Simulate realistic fluctuations
+  const hr   = Math.round(70 + Math.sin(Date.now()/8000)*12 + (Math.random()-0.5)*4);
+  const sbp  = Math.round(120 + Math.sin(Date.now()/12000)*10 + (Math.random()-0.5)*3);
+  const dbp  = Math.round(80 + Math.sin(Date.now()/12000)*6  + (Math.random()-0.5)*2);
+  const temp = +(36.5 + Math.sin(Date.now()/20000)*0.4 + (Math.random()-0.5)*0.1).toFixed(1);
+  const spo2 = Math.round(97 + Math.sin(Date.now()/15000)*1.5 + (Math.random()-0.5)*0.5);
+  return { hr, sbp, dbp, temp, spo2: Math.min(100, Math.max(90, spo2)) };
+}
+
+function getStatus(type, val) {
+  if(type === 'hr')   return val < 60 ? ['warn','Low HR']  : val > 100 ? ['danger','High HR']  : ['normal','Normal'];
+  if(type === 'sbp')  return val < 90 ? ['warn','Low BP']  : val > 140 ? ['danger','High BP']  : ['normal','Normal'];
+  if(type === 'temp') return val < 36  ? ['warn','Low Temp']: val > 37.5 ? ['danger','Fever']  : ['normal','Normal'];
+  if(type === 'spo2') return val < 94 ? ['danger','Low O₂'] : val < 96 ? ['warn','Borderline'] : ['normal','Normal'];
+  return ['normal','Normal'];
+}
+
+/* ============================================================
+   CHARTS INIT
+   ============================================================ */
+let hrChart, tempChart;
+const MAX_POINTS = 30;
+
+function initCharts() {
+  const commonOpts = {
+    responsive:true, maintainAspectRatio:false,
+    animation:{ duration:300 },
+    plugins:{ legend:{ display:false } },
+    scales:{
+      x:{ grid:{ color:'rgba(26,46,69,0.6)' }, ticks:{ color:'#7a9ab5', font:{ family:'Space Mono', size:10 } } },
+      y:{ grid:{ color:'rgba(26,46,69,0.6)' }, ticks:{ color:'#7a9ab5', font:{ family:'Space Mono', size:10 } } }
+    }
+  };
+
+  hrChart = new Chart(document.getElementById('hrChart').getContext('2d'), {
+    type:'line',
+    data:{
+      labels:[],
+      datasets:[{
+        label:'Heart Rate',
+        data:[],
+        borderColor:'#ff4b6e',
+        backgroundColor:'rgba(255,75,110,0.08)',
+        fill:true,
+        tension:0.4,
+        pointRadius:0,
+        borderWidth:2
+      }]
+    },
+    options:{ ...commonOpts }
+  });
+
+  tempChart = new Chart(document.getElementById('tempChart').getContext('2d'), {
+    type:'line',
+    data:{
+      labels:[],
+      datasets:[{
+        label:'Temperature',
+        data:[],
+        borderColor:'#ff6b35',
+        backgroundColor:'rgba(255,107,53,0.08)',
+        fill:true,
+        tension:0.4,
+        pointRadius:2,
+        borderWidth:2,
+        pointBackgroundColor:'#ff6b35'
+      }]
+    },
+    options:{ ...commonOpts, scales:{
+      ...commonOpts.scales,
+      y:{ ...commonOpts.scales.y, min:35.5, max:38.5 }
+    }}
+  });
+}
+
+function pushChartData(data) {
+  const now = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  [hrChart, tempChart].forEach(c => {
+    if(c.data.labels.length >= MAX_POINTS) {
+      c.data.labels.shift();
+      c.data.datasets[0].data.shift();
+    }
+  });
+  hrChart.data.labels.push(now);
+  hrChart.data.datasets[0].data.push(data.hr);
+  hrChart.update('none');
+
+  tempChart.data.labels.push(now);
+  tempChart.data.datasets[0].data.push(data.temp);
+  tempChart.update('none');
+}
+
+/* ============================================================
+   DASHBOARD UPDATE
+   ============================================================ */
+function updateDashboard() {
+  const d = generateSensorData();
+  APP.sensorData = d;
+  APP.uptime++;
+
+  // Simulate connection (always online in mock)
+  if(!APP.rpiOnline) {
+    APP.rpiOnline = true;
+    document.getElementById('rpiDot').classList.add('online');
+    document.getElementById('rpiStatus').textContent = 'RPi: Online';
+    document.getElementById('rpiConnStatus').textContent = 'ONLINE';
+    document.getElementById('rpiConnStatus').style.color = 'var(--accent2)';
+    addLog('ok','DHT22 + MAX30102 sensors initialized');
+    addLog('ok','RPi connection established @ 192.168.1.105');
+  }
+
+  // Update vitals
+  document.getElementById('hrVal').textContent = d.hr;
+  document.getElementById('bpVal').textContent = d.sbp + '/' + d.dbp;
+  document.getElementById('tempVal').textContent = d.temp;
+  document.getElementById('spo2Val').textContent = d.spo2;
+  document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('en-IN');
+
+  // Status badges
+  const setStatus = (id, type, val) => {
+    const [cls, txt] = getStatus(type, val);
+    const el = document.getElementById(id);
+    el.className = 'vital-status ' + cls;
+    el.textContent = '● ' + txt;
+  };
+  setStatus('hrStatus','hr',d.hr);
+  setStatus('bpStatus','sbp',d.sbp);
+  setStatus('tempStatus','temp',d.temp);
+  setStatus('spo2Status','spo2',d.spo2);
+
+  // Uptime
+  const h = Math.floor(APP.uptime/3600).toString().padStart(2,'0');
+  const m = Math.floor((APP.uptime%3600)/60).toString().padStart(2,'0');
+  const s = (APP.uptime%60).toString().padStart(2,'0');
+  document.getElementById('rpiUptime').textContent = `${h}:${m}:${s}`;
+  document.getElementById('rpiCPU').textContent = (48 + Math.random()*4).toFixed(1) + '°C';
+
+  // Gauge
+  const pct = (d.spo2 - 90) / 10;
+  const offset = 188.5 * (1 - Math.max(0, Math.min(1, pct)));
+  document.getElementById('gaugePath').style.strokeDashoffset = offset;
+  document.getElementById('gaugeVal').textContent = d.spo2 + '%';
+  const [sc] = getStatus('spo2', d.spo2);
+  document.getElementById('gaugePath').style.stroke =
+    sc==='normal' ? 'var(--accent2)' : sc==='warn' ? 'var(--warn)' : 'var(--accent3)';
+
+  // Occasional log events
+  if(Math.random() < 0.08) {
+    const events = [
+      ['ok','Sensor data packet received'],
+      ['ok','Vitals within normal range'],
+      ['warn','Heart rate slight elevation'],
+      ['ok','SpO2 stable'],
+      ['warn','Temperature borderline'],
+    ];
+    const e = events[Math.floor(Math.random()*events.length)];
+    addLog(e[0],e[1]);
+  }
+
+  // Charts
+  pushChartData(d);
+
+  // Sync to portal snapshot if logged in
+  if(APP.patientLoggedIn) syncPortalSnapshot();
+}
+
+function addLog(type, msg) {
+  const log = document.getElementById('eventLog');
+  const item = document.createElement('div');
+  item.className = 'log-item ' + type;
+  const t = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  item.innerHTML = `<span class="log-time">${t}</span><span>${msg}</span>`;
+  log.prepend(item);
+  while(log.children.length > 8) log.removeChild(log.lastChild);
+}
+
+/* ============================================================
+   MAP (Leaflet)
+   ============================================================ */
+let mapInited = false;
+let docMarkers = [];
+
+function initMap() {
+  if(mapInited) return;
+  mapInited = true;
+
+  // Default fallback center (Kalyan, Maharashtra)
+  const DEFAULT_LAT = 19.244, DEFAULT_LNG = 73.135;
+
+  const map = window._map = L.map('doctorMap').setView([DEFAULT_LAT, DEFAULT_LNG], 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'© OpenStreetMap contributors',
+    maxZoom:19
+  }).addTo(map);
+
+  // Pulsing user location icon
+  const userIcon = L.divIcon({
+    html:`<div style="position:relative;width:22px;height:22px;">
+      <div style="position:absolute;inset:0;background:rgba(0,212,255,0.25);border-radius:50%;animation:locPulse 1.8s infinite;"></div>
+      <div style="position:absolute;inset:3px;background:var(--accent,#00d4ff);border-radius:50%;border:2.5px solid white;box-shadow:0 0 14px rgba(0,212,255,0.9);"></div>
+    </div>`,
+    className:'',
+    iconAnchor:[11,11]
+  });
+
+  // Place default marker first, then try GPS
+  let userMarker = L.marker([DEFAULT_LAT, DEFAULT_LNG], {icon:userIcon})
+    .addTo(map)
+    .bindPopup('<b style="color:#00d4ff">📍 You are here</b><br><span style="font-size:11px;color:#546e7a;">Kalyan, Maharashtra (default)</span>');
+
+  // Show location loading toast
+  showLocationToast('📡 Getting your live location...', 'info');
+
+  // Try real GPS
+  if(navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const acc = Math.round(pos.coords.accuracy);
+
+        // Update marker to real location
+        map.removeLayer(userMarker);
+        userMarker = L.marker([lat, lng], {icon:userIcon})
+          .addTo(map)
+          .bindPopup(`
+            <b style="color:#00d4ff">📍 Your Live Location</b><br>
+            <span style="font-size:11px;color:#546e7a;">Lat: ${lat.toFixed(5)}, Lng: ${lng.toFixed(5)}</span><br>
+            <span style="font-size:11px;color:#00875a;">Accuracy: ±${acc}m</span>
+          `)
+          .openPopup();
+
+        // Fly to real location
+        map.flyTo([lat, lng], 15, { animate:true, duration:1.5 });
+
+        // Update doctor distances from real location
+        updateDoctorDistances(lat, lng);
+
+        // Update location bar
+        reverseGeocode(lat, lng);
+
+        showLocationToast('✅ Live location found!', 'success');
+        APP.userLat = lat;
+        APP.userLng = lng;
+
+        addLog('ok', `GPS location acquired (±${acc}m)`);
+      },
+      (err) => {
+        let msg = 'Location access denied';
+        if(err.code === 1) msg = 'Location permission denied';
+        if(err.code === 2) msg = 'Location unavailable';
+        if(err.code === 3) msg = 'Location request timed out';
+        showLocationToast('⚠️ ' + msg + ' — using default', 'warn');
+        addLog('warn', 'GPS: ' + msg);
+      },
+      { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
+    );
+  } else {
+    showLocationToast('⚠️ GPS not supported — using default location', 'warn');
+  }
+
+  renderDoctorMarkers(map);
+  renderDoctorList();
+}
+
+// Show a toast notification on the map page
+function showLocationToast(msg, type) {
+  let toast = document.getElementById('locationToast');
+  if(!toast) {
+    toast = document.createElement('div');
+    toast.id = 'locationToast';
+    toast.style.cssText = `
+      position:fixed; top:80px; left:50%; transform:translateX(-50%);
+      padding:10px 20px; border-radius:20px;
+      font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600;
+      z-index:2000; transition:all .3s;
+      box-shadow:0 4px 20px rgba(0,0,0,0.4);
+      pointer-events:none;
+    `;
+    document.body.appendChild(toast);
+  }
+  const styles = {
+    info:    { bg:'rgba(0,212,255,0.15)',  border:'1px solid rgba(0,212,255,0.4)',  color:'#00d4ff' },
+    success: { bg:'rgba(0,255,136,0.15)',  border:'1px solid rgba(0,255,136,0.4)',  color:'#00ff88' },
+    warn:    { bg:'rgba(255,160,64,0.15)', border:'1px solid rgba(255,160,64,0.4)', color:'#ffa040' },
+  };
+  const s = styles[type] || styles.info;
+  toast.style.background = s.bg;
+  toast.style.border      = s.border;
+  toast.style.color       = s.color;
+  toast.textContent       = msg;
+  toast.style.opacity     = '1';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 3500);
+}
+
+// Reverse geocode lat/lng to address and show in UI
+function reverseGeocode(lat, lng) {
+  fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
+    .then(r => r.json())
+    .then(data => {
+      const addr = data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      const short = [
+        data.address?.suburb || data.address?.neighbourhood || '',
+        data.address?.city   || data.address?.town || data.address?.village || '',
+        data.address?.state  || ''
+      ].filter(Boolean).join(', ');
+
+      const bar = document.getElementById('userLocationBar');
+      if(bar) {
+        bar.innerHTML = `📍 <b>${short || addr}</b>`;
+        bar.style.color = 'var(--accent2)';
+      }
+    })
+    .catch(() => {});
+}
+
+// Recalculate doctor distances from user real location
+function updateDoctorDistances(lat, lng) {
+  function haversine(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2-lat1)*Math.PI/180;
+    const dLng = (lng2-lng1)*Math.PI/180;
+    const a = Math.sin(dLat/2)**2 +
+              Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+  DOCTORS.forEach(doc => {
+    const km = haversine(lat, lng, doc.lat, doc.lng);
+    doc.dist = km < 1 ? (km*1000).toFixed(0)+'m' : km.toFixed(1)+' km';
+  });
+  renderDoctorList();
+}
+
+function recenterToUser() {
+  if(!window._map) return;
+  if(APP.userLat && APP.userLng) {
+    window._map.flyTo([APP.userLat, APP.userLng], 16, { animate:true, duration:1.2 });
+    showLocationToast('🎯 Centered to your location', 'success');
+  } else {
+    showLocationToast('📡 Fetching your GPS location...', 'info');
+    navigator.geolocation?.getCurrentPosition(pos => {
+      APP.userLat = pos.coords.latitude;
+      APP.userLng = pos.coords.longitude;
+      window._map.flyTo([APP.userLat, APP.userLng], 16, { animate:true, duration:1.2 });
+      updateDoctorDistances(APP.userLat, APP.userLng);
+      reverseGeocode(APP.userLat, APP.userLng);
+      showLocationToast('✅ Location found!', 'success');
+    }, () => showLocationToast('⚠️ Could not get location', 'warn'), { enableHighAccuracy:true });
+  }
+}
+
+function renderDoctorMarkers(map) {
+  if(!map) return;
+  const filtered = DOCTORS.filter(d =>
+    APP.filter === 'All' || d.spec.includes(APP.filter)
+  );
+  docMarkers.forEach(m => map.removeLayer(m));
+  docMarkers = [];
+
+  filtered.forEach(doc => {
+    const icon = L.divIcon({
+      html:`<div style="background:${doc.color};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid white;box-shadow:0 4px 12px rgba(0,0,0,0.4);cursor:pointer;">${doc.emoji}</div>`,
+      className:'', iconAnchor:[16,16]
+    });
+    const m = L.marker([doc.lat, doc.lng], {icon}).addTo(map);
+    m.bindPopup(`
+      <b>${doc.name}</b><br>
+      <span style="color:#00d4ff">${doc.spec}</span><br>
+      ⭐ ${doc.rating} · ${doc.dist}<br>
+      ${doc.avail ? '🟢 Available' : '🔴 Busy'}
+    `);
+    m.on('click', () => showDocOverlay(doc));
+    docMarkers.push(m);
+  });
+}
+
+function showDocOverlay(doc) {
+  APP.docFilter = doc;
+  document.getElementById('ovName').textContent = doc.name;
+  document.getElementById('ovSpec').textContent = doc.spec;
+  document.getElementById('ovMeta').textContent = `⭐ ${doc.rating} · ${doc.dist} · ${doc.avail ? '🟢 Available now' : '🔴 Busy'}`;
+  // Hide website row for doctors
+  document.getElementById('ovWebsiteRow').style.display = 'none';
+  // Restore report button
+  const reportBtn = document.getElementById('ovReportBtn');
+  if(reportBtn) { reportBtn.style.display = ''; reportBtn.onclick = sendReportToDoc; }
+  // Restore call button
+  const callBtn = document.getElementById('ovCallBtn');
+  if(callBtn) callBtn.onclick = callDoctor;
+  document.getElementById('mapOverlay').classList.add('show');
+}
+
+function callDoctor() {
+  if(APP.docFilter) alert(`Calling ${APP.docFilter.name}...\n${APP.docFilter.phone}`);
+}
+
+function sendReportToDoc() {
+  showPage('portal', document.querySelectorAll('.nav-tab')[2]);
+}
+
+function renderDoctorList() {
+  const list = document.getElementById('doctorList');
+  const q = document.getElementById('docSearch')?.value.toLowerCase() || '';
+  const filtered = DOCTORS.filter(d => {
+    const matchFilter = APP.filter === 'All' || d.spec.includes(APP.filter);
+    const matchSearch = d.name.toLowerCase().includes(q) || d.spec.toLowerCase().includes(q);
+    return matchFilter && matchSearch;
+  });
+  list.innerHTML = '';
+  filtered.forEach(doc => {
+    const card = document.createElement('div');
+    card.className = 'doctor-card';
+    card.innerHTML = `
+      <div class="doctor-card-top">
+        <div class="doctor-avatar" style="background:${doc.color}20;border:2px solid ${doc.color};">${doc.emoji}</div>
+        <div style="flex:1">
+          <div class="doctor-name">${doc.name}</div>
+          <div class="doctor-spec">${doc.spec}</div>
+          <div class="doctor-meta">⭐ ${doc.rating} · ${doc.dist}</div>
+        </div>
+      </div>
+      <span class="tag ${doc.avail?'':'busy'}">${doc.avail ? '🟢 Available' : '🔴 Busy'}</span>
+      <span class="tag" style="margin-left:6px;background:rgba(0,212,255,0.1);color:var(--accent);">📞 ${doc.phone}</span>
+    `;
+    card.onclick = () => {
+      document.querySelectorAll('.doctor-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      showDocOverlay(doc);
+      if(window._map) window._map.flyTo([doc.lat, doc.lng], 16);
+    };
+    list.appendChild(card);
+  });
+}
+
+function setFilter(f, btn) {
+  APP.filter = f;
+  document.querySelectorAll('#filterRow .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDoctorList();
+  if(window._map) renderDoctorMarkers(window._map);
+}
+
+function filterDoctors() {
+  if(APP.mapView === 'chemist') renderChemistList();
+  else renderDoctorList();
+}
+
+/* ============================================================
+   CHEMIST FUNCTIONS
+   ============================================================ */
+function switchMapView(view) {
+  APP.mapView = view;
+  const isDoc     = view === 'doctor';
+  const docBtn    = document.getElementById('viewDoctorBtn');
+  const chemBtn   = document.getElementById('viewChemistBtn');
+  const filterRow = document.getElementById('filterRow');
+  const chemRow   = document.getElementById('chemistFilterRow');
+  const chemSearch= document.getElementById('chemistNameSearch');
+  const searchBox = document.getElementById('docSearch');
+
+  // Toggle button styles
+  docBtn.classList.toggle('active',       isDoc);
+  docBtn.classList.toggle('chemist-active', !isDoc);
+  chemBtn.classList.toggle('active',      !isDoc);
+  chemBtn.classList.toggle('chemist-active', !isDoc);
+  docBtn.classList.remove('chemist-active');
+  if(!isDoc) chemBtn.classList.add('chemist-active');
+  else       chemBtn.classList.remove('chemist-active', 'active');
+  docBtn.className = 'view-type-btn' + (isDoc ? ' active' : '');
+  chemBtn.className= 'view-type-btn' + (!isDoc ? ' chemist-active' : '');
+
+  // Show/hide correct filters
+  filterRow.style.display  = isDoc  ? '' : 'none';
+  chemRow.style.display    = !isDoc ? '' : 'none';
+  chemSearch.classList.toggle('show', !isDoc);
+  searchBox.placeholder    = isDoc
+    ? '🔍  Search by name or specialty...'
+    : '🔍  Search chemist or medicine store...';
+
+  if(isDoc) {
+    renderDoctorList();
+    if(window._map) { renderDoctorMarkers(window._map); clearChemistMarkers(); }
+  } else {
+    renderChemistList();
+    if(window._map) { clearDoctorMarkers(); renderChemistMarkers(window._map); }
+  }
+}
+
+function clearDoctorMarkers() {
+  if(!window._map) return;
+  docMarkers.forEach(m => window._map.removeLayer(m));
+  docMarkers = [];
+}
+
+function clearChemistMarkers() {
+  if(!window._map) return;
+  APP.chemistMarkers.forEach(m => window._map.removeLayer(m));
+  APP.chemistMarkers = [];
+}
+
+function renderChemistMarkers(map) {
+  if(!map) return;
+  clearChemistMarkers();
+  const filtered = getFilteredChemists();
+  filtered.forEach(ch => {
+    const icon = L.divIcon({
+      html:`<div style="background:${ch.color};width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;border:3px solid white;box-shadow:0 4px 12px rgba(0,0,0,0.4);cursor:pointer;opacity:${ch.open?1:0.6};">${ch.emoji}</div>`,
+      className:'', iconAnchor:[17,17]
+    });
+    const m = L.marker([ch.lat, ch.lng], {icon}).addTo(map);
+    m.bindPopup(`
+      <b>${ch.name}</b><br>
+      <span style="color:#10b981">${ch.category} Store</span><br>
+      ⭐ ${ch.rating} · ${ch.dist}<br>
+      🕐 ${ch.hours}<br>
+      ${ch.open ? '🟢 Open Now' : '🔴 Closed'}
+      ${ch.website ? `<br><a href="${ch.website}" target="_blank" style="color:#10b981;">🔗 Website</a>` : ''}
+    `);
+    m.on('click', () => showChemistOverlay(ch));
+    APP.chemistMarkers.push(m);
+  });
+}
+
+function getFilteredChemists() {
+  const q = (document.getElementById('chemistNameSearch')?.value || '').toLowerCase().trim();
+  const sq= (document.getElementById('docSearch')?.value || '').toLowerCase().trim();
+  return CHEMISTS.filter(ch => {
+    const matchCat  = APP.chemistFilter === 'All' || ch.category === APP.chemistFilter;
+    const matchName = !q || ch.name.toLowerCase().includes(q);
+    const matchSrch = !sq|| ch.name.toLowerCase().includes(sq) || ch.category.toLowerCase().includes(sq) || ch.address.toLowerCase().includes(sq);
+    return matchCat && matchName && matchSrch;
+  });
+}
+
+function renderChemistList() {
+  const list = document.getElementById('doctorList');
+  const filtered = getFilteredChemists();
+  list.innerHTML = '';
+  if(!filtered.length) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2);font-size:13px;">No chemists found</div>';
+    return;
+  }
+  filtered.forEach(ch => {
+    const card = document.createElement('div');
+    card.className = 'doctor-card';
+    card.innerHTML = `
+      <div class="doctor-card-top">
+        <div class="doctor-avatar" style="background:${ch.color}22;border:2px solid ${ch.color};font-size:20px;">${ch.emoji}</div>
+        <div style="flex:1">
+          <div class="doctor-name">${ch.name}</div>
+          <div class="doctor-spec" style="color:#10b981">${ch.category} Store</div>
+          <div class="doctor-meta">⭐ ${ch.rating} · ${ch.dist} · 🕐 ${ch.hours}</div>
+        </div>
+      </div>
+      <span class="chemist-badge ${ch.open?'':'closed'}">${ch.open ? '🟢 Open Now' : '🔴 Closed'}</span>
+      <span class="tag" style="margin-left:6px;background:rgba(16,185,129,0.1);color:#10b981;">📞 ${ch.phone}</span>
+      ${ch.website ? `<a href="${ch.website}" target="_blank" rel="noopener" class="chemist-link-btn">🔗 Website</a>` : ''}
+      <div style="font-size:11px;color:var(--text2);margin-top:6px;">📍 ${ch.address}</div>
+    `;
+    card.onclick = (e) => {
+      if(e.target.tagName === 'A') return; // let link open
+      document.querySelectorAll('.doctor-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      showChemistOverlay(ch);
+      if(window._map) window._map.flyTo([ch.lat, ch.lng], 17);
+    };
+    list.appendChild(card);
+  });
+}
+
+function showChemistOverlay(ch) {
+  document.getElementById('ovName').textContent = ch.name;
+  document.getElementById('ovSpec').innerHTML   = `<span style="color:#10b981">${ch.category} Pharmacy</span> · ${ch.open ? '🟢 Open' : '🔴 Closed'}`;
+  document.getElementById('ovMeta').textContent = `⭐ ${ch.rating} · ${ch.dist} · 🕐 ${ch.hours} · 📍 ${ch.address}`;
+
+  // Website link
+  const websiteRow  = document.getElementById('ovWebsiteRow');
+  const websiteLink = document.getElementById('ovWebsiteLink');
+  if(ch.website) {
+    websiteRow.style.display = '';
+    websiteLink.href         = ch.website;
+    websiteLink.textContent  = '🔗 ' + new URL(ch.website).hostname.replace('www.','');
+  } else {
+    websiteRow.style.display = 'none';
+  }
+
+  // Update call/report buttons
+  const callBtn   = document.getElementById('ovCallBtn');
+  const reportBtn = document.getElementById('ovReportBtn');
+  if(callBtn)   callBtn.onclick   = () => alert(`Calling ${ch.name}...
+${ch.phone}`);
+  if(reportBtn) reportBtn.style.display = 'none'; // no health report for chemist
+  else if(reportBtn) reportBtn.style.display = '';
+
+  APP.docFilter = { ...ch, isChemist:true };
+  document.getElementById('mapOverlay').classList.add('show');
+}
+
+function setChemistFilter(f, btn) {
+  APP.chemistFilter = f;
+  document.querySelectorAll('#chemistFilterRow .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderChemistList();
+  if(window._map) renderChemistMarkers(window._map);
+}
+
+function filterChemists() { renderChemistList(); }
+
+/* ============================================================
+   PATIENT PORTAL
+   ============================================================ */
+function patientLogin() {
+  const id   = document.getElementById('patId').value.trim();
+  const pass = document.getElementById('patPass').value;
+  const found = APP.creds.patients.find(p => p.id === id && p.pass === pass);
+  if(!found) {
+    document.getElementById('patientErr').classList.add('show');
+    return;
+  }
+  APP.patientLoggedIn = true;
+  APP.currentPatient = found;
+  document.getElementById('patientErr').classList.remove('show');
+  document.getElementById('patientLogin').style.display = 'none';
+  document.getElementById('patientPortal').classList.add('show');
+  syncPortalSnapshot();
+  renderDocSelect();
+  renderPatientMsgs();
+}
+
+function syncPortalSnapshot() {
+  const d = APP.sensorData;
+  document.getElementById('sHR').textContent   = d.hr || '--';
+  document.getElementById('sBP').textContent   = d.sbp && d.dbp ? d.sbp+'/'+d.dbp : '--/--';
+  document.getElementById('sTemp').textContent = d.temp || '--';
+  document.getElementById('sSpO2').textContent = d.spo2 || '--';
+}
+
+function renderPortal() {
+  if(APP.patientLoggedIn) {
+    document.getElementById('patientLogin').style.display='none';
+    document.getElementById('patientPortal').classList.add('show');
+    syncPortalSnapshot();
+    renderDocSelect();
+    renderPatientMsgs();
+  }
+}
+
+function renderDocSelect() {
+  const wrap = document.getElementById('docSelect');
+  wrap.innerHTML = '';
+  DOCTORS.forEach(doc => {
+    const el = document.createElement('div');
+    el.className = 'doc-option';
+    el.innerHTML = `<div style="font-size:24px;margin-bottom:6px;">${doc.emoji}</div>
+      <div class="doc-option-name">${doc.name}</div>
+      <div class="doc-option-spec">${doc.spec}</div>`;
+    el.onclick = () => {
+      document.querySelectorAll('.doc-option').forEach(e => e.classList.remove('selected'));
+      el.classList.add('selected');
+      APP.selectedDocForReport = doc;
+    };
+    wrap.appendChild(el);
+  });
+}
+
+function sendHealthReport() {
+  if(!APP.selectedDocForReport) { alert('Please select a doctor first.'); return; }
+  const note = document.getElementById('patientNote').value.trim();
+  const report = {
+    patientId:   APP.currentPatient.id,
+    patientName: APP.currentPatient.name,
+    doctorId:    'DR-001',
+    vitals:      { ...APP.sensorData },
+    note:        note || '(No additional note)',
+    bodyPart:    APP.selectedBodyPart || 'General',
+    images:      [...(APP.skinImages || [])],
+    time:        new Date().toLocaleTimeString('en-IN')
+  };
+  APP.reports.push(report);
+  document.getElementById('sendSuccess').classList.add('show');
+  document.getElementById('patientNote').value = '';
+  // Clear images after send
+  APP.skinImages = [];
+  APP.selectedBodyPart = 'General';
+  renderSkinGrid();
+  setTimeout(() => document.getElementById('sendSuccess').classList.remove('show'), 4000);
+  addLog('ok', `Report sent with ${report.images.length} image(s) to ${APP.selectedDocForReport.name}`);
+}
+
+function renderPatientMsgs() {
+  const msgs = APP.messages[APP.currentPatient?.id] || [];
+  const el = document.getElementById('patientMsgs');
+  el.innerHTML = '';
+  msgs.forEach(m => {
+    const div = document.createElement('div');
+    div.className = 'msg-bubble doctor';
+    div.innerHTML = `<div class="msg-meta">🩺 Doctor · ${m.time}</div>${m.text}`;
+    el.appendChild(div);
+  });
+  if(!msgs.length) el.innerHTML = '<div style="color:var(--text2);font-size:13px;">No messages yet.</div>';
+}
+
+/* ============================================================
+   DOCTOR VIEW
+   ============================================================ */
+function renderDocView() {
+  // overlay shown if not logged in
+  if(!APP.doctorLoggedIn) {
+    document.getElementById('docLoginOverlay').classList.remove('hidden');
+    return;
+  }
+}
+
+function doctorLogin() {
+  const id   = document.getElementById('docId').value.trim();
+  const pass = document.getElementById('docPass').value;
+  const found = APP.creds.doctors.find(d => d.id === id && d.pass === pass);
+  if(!found) {
+    document.getElementById('docErr').classList.add('show');
+    return;
+  }
+  APP.doctorLoggedIn = true;
+  APP.currentDoctor = found;
+  document.getElementById('docLoginOverlay').classList.add('hidden');
+  renderPatientSidebar();
+}
+
+function doctorLogout() {
+  APP.doctorLoggedIn = false;
+  document.getElementById('docLoginOverlay').classList.remove('hidden');
+  document.getElementById('docId').value = '';
+  document.getElementById('docPass').value = '';
+}
+
+function renderPatientSidebar() {
+  const list = document.getElementById('patientSidebarList');
+  list.innerHTML = '';
+  const patients = [
+    { id:'VW-2024-001', name:'Rahul Sharma',  age:34, unread:true  },
+    { id:'VW-2024-002', name:'Meera Joshi',   age:52, unread:false },
+    { id:'VW-2024-003', name:'Ankit Verma',   age:28, unread:true  },
+  ];
+  patients.forEach((p,i) => {
+    const item = document.createElement('div');
+    item.className = 'patient-item' + (i===0?' active':'');
+    item.innerHTML = `
+      <div class="patient-avi">${p.name[0]}</div>
+      <div>
+        <div class="patient-name">${p.name}</div>
+        <div class="patient-age">Age ${p.age} · ${p.id}</div>
+      </div>
+      ${p.unread ? '<div class="unread-dot"></div>' : ''}
+    `;
+    item.onclick = () => {
+      document.querySelectorAll('.patient-item').forEach(el => el.classList.remove('active'));
+      item.classList.remove('active');
+      item.classList.add('active');
+      // remove unread dot
+      const dot = item.querySelector('.unread-dot');
+      if(dot) dot.remove();
+      showPatientRecord(p);
+    };
+    list.appendChild(item);
+  });
+  // Show first patient by default
+  showPatientRecord(patients[0]);
+}
+
+function showPatientRecord(p) {
+  const d = APP.sensorData;
+  const msgs = APP.messages[p.id] || [];
+  const reports = APP.reports.filter(r => r.patientId === p.id);
+  const record = document.getElementById('patientRecord');
+
+  record.innerHTML = `
+    <div class="record-header">
+      <div>
+        <div class="patient-big-name">${p.name}</div>
+        <div class="patient-big-meta">ID: ${p.id} · Age: ${p.age} · 📍 Kalyan, Maharashtra</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <span class="badge badge-green">🟢 Active Monitor</span>
+        <span class="badge badge-cyan">RPi Connected</span>
+      </div>
+    </div>
+
+    <div class="msg-title">📊 Latest Vitals</div>
+    <div class="vitals-mini">
+      <div class="vm-box"><div class="vm-val" style="color:var(--accent3)">${d.hr||'--'}</div><div class="vm-lbl">Heart Rate BPM</div></div>
+      <div class="vm-box"><div class="vm-val" style="color:var(--warn);font-size:18px;margin-top:2px">${d.sbp&&d.dbp?d.sbp+'/'+d.dbp:'--/--'}</div><div class="vm-lbl">BP mmHg</div></div>
+      <div class="vm-box"><div class="vm-val" style="color:#ff6b35">${d.temp||'--'}°</div><div class="vm-lbl">Temperature</div></div>
+      <div class="vm-box"><div class="vm-val" style="color:var(--accent2)">${d.spo2||'--'}%</div><div class="vm-lbl">SpO₂</div></div>
+    </div>
+
+    ${reports.length ? `
+    <div class="msg-title" style="margin-bottom:8px;">📤 Health Reports from Patient</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+      ${reports.map(r=>`
+        <div style="background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--accent2);border-radius:var(--r2);padding:12px;">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">Sent at ${r.time}</div>
+          <div style="font-size:13px;margin-bottom:8px;">${r.note}</div>
+          <div style="display:flex;gap:10px;font-size:11px;font-family:var(--font-mono);flex-wrap:wrap;">
+            <span style="color:var(--accent3)">HR:${r.vitals.hr}</span>
+            <span style="color:var(--warn)">BP:${r.vitals.sbp}/${r.vitals.dbp}</span>
+            <span style="color:#ff6b35">T:${r.vitals.temp}°C</span>
+            <span style="color:var(--accent2)">SpO₂:${r.vitals.spo2}%</span>
+            ${r.bodyPart ? `<span style="color:#a78bfa">📍 ${r.bodyPart}</span>` : ''}
+          </div>
+          ${r.images && r.images.length ? `
+          <div style="margin-top:10px;">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">🩺 Skin Images (${r.images.length}):</div>
+            <div class="skin-report-imgs">
+              ${r.images.map((img,i)=>`
+                <img src="${img}" class="skin-report-img" 
+                  onclick="openLightbox('${img}')" 
+                  title="Click to enlarge · Image ${i+1}">
+              `).join('')}
+            </div>
+          </div>` : ''}
+        </div>
+      `).join('')}
+    </div>` : '<div style="font-size:12px;color:var(--text2);margin-bottom:16px;">No reports received from patient yet.</div>'}
+
+    <div class="messages-area">
+      <div class="msg-title">💬 Secure Messaging</div>
+      <div class="msg-list" id="docMsgList">
+        ${msgs.map(m=>`
+          <div class="msg-bubble ${m.from}">
+            <div class="msg-meta">${m.from==='doctor'?'🩺 You':'👤 Patient'} · ${m.time}</div>
+            ${m.text}
+          </div>
+        `).join('')}
+      </div>
+      <div class="note-compose">
+        <input type="text" id="docNoteInput" placeholder="Write a note for the patient..." 
+          onkeydown="if(event.key==='Enter')sendDocNote('${p.id}')">
+        <button class="btn btn-primary" onclick="sendDocNote('${p.id}')">Send →</button>
+      </div>
+    </div>
+  `;
+}
+
+function sendDocNote(patientId) {
+  const input = document.getElementById('docNoteInput');
+  const txt = input.value.trim();
+  if(!txt) return;
+  if(!APP.messages[patientId]) APP.messages[patientId] = [];
+  const msg = { from:'doctor', text:txt, time:new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) };
+  APP.messages[patientId].push(msg);
+  input.value = '';
+
+  // Re-render messages list only
+  const list = document.getElementById('docMsgList');
+  if(list) {
+    const div = document.createElement('div');
+    div.className = 'msg-bubble doctor';
+    div.innerHTML = `<div class="msg-meta">🩺 You · ${msg.time}</div>${msg.text}`;
+    list.appendChild(div);
+    list.scrollTop = list.scrollHeight;
+  }
+  // Also update patient portal if open
+  if(APP.patientLoggedIn && APP.currentPatient?.id === patientId) {
+    renderPatientMsgs();
+  }
+}
+
+/* ============================================================
+   SKIN IMAGE CAPTURE & CAMERA
+   ============================================================ */
+APP.skinImages      = [];
+APP.selectedBodyPart = 'General';
+APP.cameraStream    = null;
+APP.cameraFacing    = 'environment'; // 'user' = front, 'environment' = back
+
+function selectBodyPart(part, btn) {
+  APP.selectedBodyPart = part;
+  document.querySelectorAll('.body-part-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function openCamera(side) {
+  APP.cameraFacing = (side === 'front') ? 'user' : 'environment';
+  const box = document.getElementById('cameraPreviewBox');
+  const video = document.getElementById('cameraStream');
+  const dropZone = document.getElementById('skinDropZone');
+
+  // Stop existing stream
+  if(APP.cameraStream) {
+    APP.cameraStream.getTracks().forEach(t => t.stop());
+    APP.cameraStream = null;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: APP.cameraFacing, width:{ideal:1280}, height:{ideal:720} },
+      audio: false
+    });
+    APP.cameraStream = stream;
+    video.srcObject = stream;
+    box.classList.add('show');
+    dropZone.style.display = 'none';
+    // Highlight active camera btn
+    document.querySelectorAll('.cam-btn').forEach(b => b.classList.remove('active'));
+    const idx = side === 'front' ? 0 : 1;
+    document.querySelectorAll('.cam-btn')[idx]?.classList.add('active');
+  } catch(err) {
+    let msg = 'Camera access denied';
+    if(err.name === 'NotFoundError')    msg = 'No camera found on this device';
+    if(err.name === 'NotAllowedError')  msg = 'Camera permission denied — please allow in browser settings';
+    if(err.name === 'NotReadableError') msg = 'Camera is in use by another app';
+    showCameraError(msg);
+  }
+}
+
+function showCameraError(msg) {
+  const box = document.getElementById('cameraPreviewBox');
+  box.classList.add('show');
+  box.innerHTML = `
+    <div style="padding:30px;text-align:center;background:var(--bg3);">
+      <div style="font-size:40px;margin-bottom:10px;">📷</div>
+      <div style="color:var(--accent3);font-weight:600;margin-bottom:6px;">Camera Unavailable</div>
+      <div style="font-size:12px;color:var(--text2);">${msg}</div>
+      <button class="cam-btn" style="margin:12px auto 0;max-width:180px;" onclick="closeCameraPreview()">✕ Close</button>
+    </div>`;
+}
+
+function closeCameraPreview() {
+  if(APP.cameraStream) {
+    APP.cameraStream.getTracks().forEach(t => t.stop());
+    APP.cameraStream = null;
+  }
+  const box = document.getElementById('cameraPreviewBox');
+  box.classList.remove('show');
+  // Restore original video element
+  box.innerHTML = `
+    <video id="cameraStream" autoplay playsinline muted></video>
+    <button class="cam-switch-btn" onclick="switchCamera()">🔄 Flip</button>
+    <button class="cam-snap-btn" onclick="captureSnapshot()">📸 Capture</button>`;
+  document.getElementById('skinDropZone').style.display = '';
+  document.querySelectorAll('.cam-btn').forEach(b => b.classList.remove('active'));
+}
+
+function switchCamera() {
+  APP.cameraFacing = APP.cameraFacing === 'user' ? 'environment' : 'user';
+  openCamera(APP.cameraFacing === 'user' ? 'front' : 'back');
+}
+
+function captureSnapshot() {
+  const video = document.getElementById('cameraStream');
+  if(!video || !video.videoWidth) return;
+  const canvas = document.getElementById('snapCanvas');
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  // Mirror front camera
+  if(APP.cameraFacing === 'user') {
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+  }
+  ctx.drawImage(video, 0, 0);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  addSkinImage(dataUrl, APP.selectedBodyPart);
+  closeCameraPreview();
+  // Flash effect
+  flashEffect();
+}
+
+function flashEffect() {
+  const flash = document.createElement('div');
+  flash.style.cssText = `position:fixed;inset:0;background:white;opacity:0.7;z-index:9999;pointer-events:none;animation:flashAnim 0.3s ease forwards;`;
+  document.head.insertAdjacentHTML('beforeend','<style>@keyframes flashAnim{0%{opacity:0.7}100%{opacity:0}}</style>');
+  document.body.appendChild(flash);
+  setTimeout(() => flash.remove(), 350);
+}
+
+function handleFileUpload(event) {
+  const files = Array.from(event.target.files);
+  processImageFiles(files);
+  event.target.value = ''; // reset input
+}
+
+function handleFileDrop(event) {
+  event.preventDefault();
+  document.getElementById('skinDropZone').classList.remove('dragover');
+  const files = Array.from(event.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+  processImageFiles(files);
+}
+
+function processImageFiles(files) {
+  const MAX = 5;
+  const remaining = MAX - (APP.skinImages?.length || 0);
+  const toProcess = files.slice(0, remaining);
+  if(files.length > remaining) {
+    showLocationToast(`⚠️ Max ${MAX} images allowed`, 'warn');
+  }
+  toProcess.forEach(file => {
+    if(file.size > 5 * 1024 * 1024) {
+      showLocationToast(`⚠️ ${file.name} exceeds 5MB limit`, 'warn');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => addSkinImage(e.target.result, APP.selectedBodyPart);
+    reader.readAsDataURL(file);
+  });
+}
+
+function addSkinImage(dataUrl, label) {
+  if(!APP.skinImages) APP.skinImages = [];
+  if(APP.skinImages.length >= 5) {
+    showLocationToast('⚠️ Max 5 images allowed', 'warn');
+    return;
+  }
+  APP.skinImages.push(dataUrl);
+  renderSkinGrid();
+  showLocationToast(`✅ Image ${APP.skinImages.length}/5 added (${label})`, 'success');
+}
+
+function renderSkinGrid() {
+  const grid  = document.getElementById('skinImagesGrid');
+  const count = document.getElementById('skinImgCount');
+  const zone  = document.getElementById('skinDropZone');
+  if(!grid) return;
+  grid.innerHTML = '';
+  (APP.skinImages || []).forEach((img, i) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'skin-img-thumb';
+    thumb.innerHTML = `
+      <img src="${img}" alt="Skin image ${i+1}">
+      <button class="thumb-remove" onclick="removeSkinImage(${i})" title="Remove">✕</button>
+      <div class="thumb-label">${APP.selectedBodyPart} #${i+1}</div>
+    `;
+    grid.appendChild(thumb);
+  });
+  if(count) {
+    count.textContent = APP.skinImages.length
+      ? `${APP.skinImages.length}/5 image(s) attached · Doctor will see these`
+      : '';
+  }
+  if(zone) zone.style.display = APP.skinImages.length >= 5 ? 'none' : '';
+}
+
+function removeSkinImage(idx) {
+  APP.skinImages.splice(idx, 1);
+  renderSkinGrid();
+}
+
+function openLightbox(src) {
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('imgLightbox').classList.add('show');
+}
+
+function closeLightbox() {
+  document.getElementById('imgLightbox').classList.remove('show');
+  document.getElementById('lightboxImg').src = '';
+}
+
+/* ============================================================
+   MULTILANGUAGE SYSTEM
+   ============================================================ */
+const LANGUAGES = {
+  en: {
+    code:'en-IN', name:'English',
+    t: {
+      dashTitle:'LIVE VITALS MONITOR', dashSub:'Raspberry Pi Sensor Hub • Real-time streaming',
+      heartRate:'Heart Rate', bloodPressure:'Blood Pressure', temperature:'Temperature', spo2:'SpO₂ (Blood O₂)',
+      findDoctors:'FIND NEAREST DOCTORS', findSub:'Real-time map • Contact directly • Share your health report',
+      portalTitle:'PATIENT HEALTH PORTAL', portalSub:'Login to send your health data to your doctor securely',
+      docTitle:'DOCTOR DASHBOARD', docSub:'Patient records • Health reports • Secure messaging',
+      patientLogin:'Patient Login', patientLoginSub:'Access your personal health portal',
+      loginBtn:'Login to Portal →', patientId:'Patient ID', password:'Password',
+      selectDoctor:'Select Doctor', personalNote:'Personal Note to Doctor',
+      sendReport:'Send Health Report →', reportSent:'Report Sent Successfully!',
+      reportSentSub:'Your doctor has been notified and can view your health data.',
+      msgsFromDoc:'Messages from Doctor', voiceListening:'LISTENING...',
+      voiceHint:'Speak in your selected language', rpiOn:'RPi ON', rpiOff:'RPi OFF',
+      pdfReport:'PDF Report', locateMe:'Locate Me', searchDoc:'Search by name or specialty...',
+      noteHint:'Describe your symptoms, concerns, or any additional information you want your doctor to know...',
+      skinImages:'Attach Skin / Body Images', skinCapture:'Capture', skinUpload:'Upload Image',
+      frontCam:'Front Camera', backCam:'Back Camera', secureNote:'🔒 Encrypted and sent securely. Only your selected doctor can view this.',
+      available:'Available', busy:'Busy', call:'Call', sendReport2:'Send Report',
+      normal:'Normal', highHR:'High HR', lowHR:'Low HR', highBP:'High BP', lowBP:'Low BP',
+      fever:'Fever', lowTemp:'Low Temp', lowO2:'Low O₂', borderline:'Borderline',
+    }
+  },
+  hi: {
+    code:'hi-IN', name:'हिन्दी',
+    t: {
+      dashTitle:'लाइव वाइटल मॉनिटर', dashSub:'रास्पबेरी पाई सेंसर हब • रियल-टाइम स्ट्रीमिंग',
+      heartRate:'हृदय गति', bloodPressure:'रक्तचाप', temperature:'तापमान', spo2:'SpO₂ (रक्त ऑक्सीजन)',
+      findDoctors:'नजदीकी डॉक्टर खोजें', findSub:'रियल-टाइम मैप • सीधे संपर्क करें • स्वास्थ्य रिपोर्ट भेजें',
+      portalTitle:'मरीज़ स्वास्थ्य पोर्टल', portalSub:'अपने डॉक्टर को स्वास्थ्य डेटा सुरक्षित भेजने के लिए लॉगिन करें',
+      docTitle:'डॉक्टर डैशबोर्ड', docSub:'मरीज़ रिकॉर्ड • स्वास्थ्य रिपोर्ट • सुरक्षित संदेश',
+      patientLogin:'मरीज़ लॉगिन', patientLoginSub:'अपने व्यक्तिगत स्वास्थ्य पोर्टल तक पहुंचें',
+      loginBtn:'पोर्टल में लॉगिन करें →', patientId:'मरीज़ आईडी', password:'पासवर्ड',
+      selectDoctor:'डॉक्टर चुनें', personalNote:'डॉक्टर को व्यक्तिगत नोट',
+      sendReport:'स्वास्थ्य रिपोर्ट भेजें →', reportSent:'रिपोर्ट सफलतापूर्वक भेजी गई!',
+      reportSentSub:'आपके डॉक्टर को सूचित किया गया है।',
+      msgsFromDoc:'डॉक्टर के संदेश', voiceListening:'सुन रहा हूँ...',
+      voiceHint:'अपनी भाषा में बोलें', rpiOn:'RPi चालू', rpiOff:'RPi बंद',
+      pdfReport:'PDF रिपोर्ट', locateMe:'मेरी लोकेशन', searchDoc:'नाम या विशेषता खोजें...',
+      noteHint:'अपने लक्षण, चिंताएं या कोई अन्य जानकारी बताएं जो आप डॉक्टर को देना चाहते हैं...',
+      skinImages:'त्वचा / शरीर की छवियां संलग्न करें', skinCapture:'कैप्चर करें', skinUpload:'छवि अपलोड करें',
+      frontCam:'फ्रंट कैमरा', backCam:'बैक कैमरा', secureNote:'🔒 सुरक्षित रूप से एन्क्रिप्टेड। केवल आपका डॉक्टर देख सकता है।',
+      available:'उपलब्ध', busy:'व्यस्त', call:'कॉल', sendReport2:'रिपोर्ट भेजें',
+      normal:'सामान्य', highHR:'उच्च HR', lowHR:'निम्न HR', highBP:'उच्च BP', lowBP:'निम्न BP',
+      fever:'बुखार', lowTemp:'कम तापमान', lowO2:'कम ऑक्सीजन', borderline:'सीमावर्ती',
+    }
+  },
+  mr: {
+    code:'mr-IN', name:'मराठी',
+    t: {
+      dashTitle:'लाइव व्हायटल मॉनिटर', dashSub:'रास्पबेरी पाय सेन्सर हब • रिअल-टाइम स्ट्रीमिंग',
+      heartRate:'हृदय गती', bloodPressure:'रक्तदाब', temperature:'तापमान', spo2:'SpO₂ (रक्त ऑक्सिजन)',
+      findDoctors:'जवळचे डॉक्टर शोधा', findSub:'रिअल-टाइम नकाशा • थेट संपर्क करा • आरोग्य अहवाल पाठवा',
+      portalTitle:'रुग्ण आरोग्य पोर्टल', portalSub:'तुमच्या डॉक्टरांना सुरक्षितपणे डेटा पाठवण्यासाठी लॉगिन करा',
+      docTitle:'डॉक्टर डॅशबोर्ड', docSub:'रुग्ण नोंदी • आरोग्य अहवाल • सुरक्षित संदेश',
+      patientLogin:'रुग्ण लॉगिन', patientLoginSub:'तुमच्या वैयक्तिक आरोग्य पोर्टलमध्ये प्रवेश करा',
+      loginBtn:'पोर्टलमध्ये लॉगिन करा →', patientId:'रुग्ण आयडी', password:'पासवर्ड',
+      selectDoctor:'डॉक्टर निवडा', personalNote:'डॉक्टरांना वैयक्तिक नोट',
+      sendReport:'आरोग्य अहवाल पाठवा →', reportSent:'अहवाल यशस्वीरित्या पाठवला!',
+      reportSentSub:'तुमच्या डॉक्टरांना सूचित केले गेले आहे।',
+      msgsFromDoc:'डॉक्टरांचे संदेश', voiceListening:'ऐकत आहे...',
+      voiceHint:'तुमच्या भाषेत बोला', rpiOn:'RPi चालू', rpiOff:'RPi बंद',
+      pdfReport:'PDF अहवाल', locateMe:'माझे स्थान', searchDoc:'नाव किंवा विशेषता शोधा...',
+      noteHint:'तुमची लक्षणे, चिंता किंवा डॉक्टरांना द्यायची माहिती सांगा...',
+      skinImages:'त्वचा / शरीराच्या प्रतिमा जोडा', skinCapture:'कॅप्चर करा', skinUpload:'प्रतिमा अपलोड करा',
+      frontCam:'फ्रंट कॅमेरा', backCam:'बॅक कॅमेरा', secureNote:'🔒 एन्क्रिप्टेड आणि सुरक्षितपणे पाठवले. फक्त तुमचे डॉक्टर पाहू शकतात।',
+      available:'उपलब्ध', busy:'व्यस्त', call:'कॉल', sendReport2:'अहवाल पाठवा',
+      normal:'सामान्य', highHR:'उच्च HR', lowHR:'कमी HR', highBP:'उच्च BP', lowBP:'कमी BP',
+      fever:'ताप', lowTemp:'कमी तापमान', lowO2:'कमी ऑक्सिजन', borderline:'सीमारेषा',
+    }
+  },
+  gu: {
+    code:'gu-IN', name:'ગુજરાતી',
+    t: {
+      dashTitle:'લાઈવ વાઈટલ મોનિટર', dashSub:'રાસ્પબેરી પાઈ સેન્સર હબ • રીઅલ-ટાઈમ સ્ટ્રીમિંગ',
+      heartRate:'હૃદય ગતિ', bloodPressure:'રક્તચાપ', temperature:'તાપમાન', spo2:'SpO₂ (રક્ત ઓક્સિજન)',
+      findDoctors:'નજીકના ડૉક્ટર શોધો', findSub:'રીઅલ-ટાઈમ નકશો • સીધો સંપર્ક • સ્વાસ્થ્ય અહેવાલ મોકલો',
+      portalTitle:'દર્દી સ્વાસ્થ્ય પોર્ટલ', portalSub:'ડૉક્ટરને ડેટા સુરક્ષિત મોકલવા લૉગિન કરો',
+      docTitle:'ડૉક્ટર ડૅશબોર્ડ', docSub:'દર્દી નોંધ • સ્વાસ્થ્ય અહેવાલ • સુરક્ષિત સંદેશ',
+      patientLogin:'દર્દી લૉગિન', patientLoginSub:'તમારા વ્યક્તિગત સ્વાસ્થ્ય પોર્ટલ ઍક્સેસ કરો',
+      loginBtn:'પોર્ટલમાં લૉગિન →', patientId:'દર્દી ID', password:'પાસવર્ડ',
+      selectDoctor:'ડૉક્ટર પસંદ કરો', personalNote:'ડૉક્ટરને વ્યક્તિગત નોટ',
+      sendReport:'સ્વાસ્થ્ય અહેવાલ મોકલો →', reportSent:'અહેવાલ સફળ રીતે મોકલ્યો!',
+      reportSentSub:'તમારા ડૉક્ટરને જાણ કરવામાં આવી છે.',
+      msgsFromDoc:'ડૉક્ટર તરફથી સંદેશ', voiceListening:'સાંભળી રહ્યો છું...',
+      voiceHint:'તમારી ભાષામાં બોલો', rpiOn:'RPi ચાલુ', rpiOff:'RPi બંધ',
+      pdfReport:'PDF અહેવાલ', locateMe:'મારું સ્થાન', searchDoc:'નામ અથવા વિશેષતા શોધો...',
+      noteHint:'તમારા લક્ષણો, ચિંતાઓ અથવા ડૉક્ટર માટે માહિતી જણાવો...',
+      skinImages:'ત્વચા / શરીરની છબીઓ જોડો', skinCapture:'કૅપ્ચર', skinUpload:'છબી અપલોડ',
+      frontCam:'ફ્રન્ટ કૅમેરા', backCam:'બૅક કૅમેરા', secureNote:'🔒 એન્ક્રિપ્ટ કરેલ. ફક્ત ડૉક્ટર જ જોઈ શકે.',
+      available:'ઉપલબ્ધ', busy:'વ્યસ્ત', call:'કૉલ', sendReport2:'અહેવાલ મોકલો',
+      normal:'સામાન્ય', highHR:'ઉચ્ચ HR', lowHR:'નીચ HR', highBP:'ઉચ્ચ BP', lowBP:'નીચ BP',
+      fever:'તાવ', lowTemp:'નીચ તાપ', lowO2:'ઓછો ઓક્સિજન', borderline:'સીમા',
+    }
+  },
+  ta: {
+    code:'ta-IN', name:'தமிழ்',
+    t: {
+      dashTitle:'நேரடி உயிர் கண்காணிப்பு', dashSub:'ராஸ்பெர்ரி பை சென்சார் ஹப் • நிகழ்நேர ஸ்ட்ரீமிங்',
+      heartRate:'இதய துடிப்பு', bloodPressure:'இரத்த அழுத்தம்', temperature:'வெப்பநிலை', spo2:'SpO₂ (ரத்த ஆக்சிஜன்)',
+      findDoctors:'அருகில் உள்ள மருத்துவர்கள்', findSub:'நிகழ்நேர வரைபடம் • நேரடி தொடர்பு • அறிக்கை அனுப்பு',
+      portalTitle:'நோயாளி சுகாதார போர்டல்', portalSub:'உங்கள் மருத்துவருக்கு தரவை பாதுகாப்பாக அனுப்ப உள்நுழையுங்கள்',
+      docTitle:'மருத்துவர் டாஷ்போர்டு', docSub:'நோயாளி பதிவுகள் • அறிக்கைகள் • பாதுகாப்பான செய்தி',
+      patientLogin:'நோயாளி உள்நுழைவு', patientLoginSub:'உங்கள் போர்டலை அணுகுங்கள்',
+      loginBtn:'போர்டலில் உள்நுழைய →', patientId:'நோயாளி ID', password:'கடவுச்சொல்',
+      selectDoctor:'மருத்துவர் தேர்வு', personalNote:'மருத்துவருக்கு குறிப்பு',
+      sendReport:'சுகாதார அறிக்கை அனுப்பு →', reportSent:'அறிக்கை வெற்றிகரமாக அனுப்பப்பட்டது!',
+      reportSentSub:'உங்கள் மருத்துவருக்கு அறிவிக்கப்பட்டது.',
+      msgsFromDoc:'மருத்துவரிடமிருந்து செய்திகள்', voiceListening:'கேட்கிறேன்...',
+      voiceHint:'உங்கள் மொழியில் பேசுங்கள்', rpiOn:'RPi இயக்கம்', rpiOff:'RPi நிறுத்தம்',
+      pdfReport:'PDF அறிக்கை', locateMe:'என் இடம்', searchDoc:'பெயர் அல்லது சிறப்பு தேடுங்கள்...',
+      noteHint:'உங்கள் அறிகுறிகள், கவலைகள் அல்லது மருத்துவருக்கு தகவல் தெரிவியுங்கள்...',
+      skinImages:'தோல் / உடல் படங்களை இணைக்கவும்', skinCapture:'படம் எடுக்கவும்', skinUpload:'படம் பதிவேற்றவும்',
+      frontCam:'முன் கேமரா', backCam:'பின் கேமரா', secureNote:'🔒 என்க்ரிப்ட் செய்யப்பட்டது. மருத்துவர் மட்டுமே பார்க்கலாம்.',
+      available:'கிடைக்கிறது', busy:'바쁘다', call:'அழைப்பு', sendReport2:'அறிக்கை அனுப்பு',
+      normal:'சாதாரண', highHR:'அதிக HR', lowHR:'குறைந்த HR', highBP:'அதிக BP', lowBP:'குறைந்த BP',
+      fever:'காய்ச்சல்', lowTemp:'குறைந்த வெப்பம்', lowO2:'குறைந்த ஆக்சிஜன்', borderline:'எல்லை',
+    }
+  },
+  es: {
+    code:'es-ES', name:'Español',
+    t: {
+      dashTitle:'MONITOR DE SIGNOS VITALES', dashSub:'Hub de sensores RPi • Transmisión en tiempo real',
+      heartRate:'Frecuencia Cardíaca', bloodPressure:'Presión Arterial', temperature:'Temperatura', spo2:'SpO₂ (Oxígeno)',
+      findDoctors:'ENCONTRAR MÉDICOS', findSub:'Mapa en tiempo real • Contacto directo • Enviar informe',
+      portalTitle:'PORTAL DE SALUD', portalSub:'Inicia sesión para enviar tus datos de salud',
+      docTitle:'PANEL DEL MÉDICO', docSub:'Registros de pacientes • Informes • Mensajería segura',
+      patientLogin:'Inicio de sesión del paciente', patientLoginSub:'Accede a tu portal de salud',
+      loginBtn:'Iniciar sesión →', patientId:'ID del Paciente', password:'Contraseña',
+      selectDoctor:'Seleccionar Médico', personalNote:'Nota personal al médico',
+      sendReport:'Enviar informe de salud →', reportSent:'¡Informe enviado con éxito!',
+      reportSentSub:'Tu médico ha sido notificado.',
+      msgsFromDoc:'Mensajes del médico', voiceListening:'ESCUCHANDO...',
+      voiceHint:'Habla en tu idioma seleccionado', rpiOn:'RPi EN', rpiOff:'RPi OFF',
+      pdfReport:'Informe PDF', locateMe:'Mi Ubicación', searchDoc:'Buscar por nombre o especialidad...',
+      noteHint:'Describe tus síntomas, preocupaciones o información adicional...',
+      skinImages:'Adjuntar imágenes de piel', skinCapture:'Capturar', skinUpload:'Subir imagen',
+      frontCam:'Cámara frontal', backCam:'Cámara trasera', secureNote:'🔒 Cifrado y enviado de forma segura.',
+      available:'Disponible', busy:'Ocupado', call:'Llamar', sendReport2:'Enviar informe',
+      normal:'Normal', highHR:'FC Alta', lowHR:'FC Baja', highBP:'PA Alta', lowBP:'PA Baja',
+      fever:'Fiebre', lowTemp:'Temp Baja', lowO2:'O₂ Bajo', borderline:'Límite',
+    }
+  },
+  fr: {
+    code:'fr-FR', name:'Français',
+    t: {
+      dashTitle:'MONITEUR DE SIGNES VITAUX', dashSub:'Hub de capteurs RPi • Streaming en temps réel',
+      heartRate:'Fréquence Cardiaque', bloodPressure:'Tension Artérielle', temperature:'Température', spo2:'SpO₂ (Oxygène)',
+      findDoctors:'TROUVER DES MÉDECINS', findSub:'Carte en temps réel • Contact direct • Envoyer rapport',
+      portalTitle:'PORTAIL DE SANTÉ', portalSub:'Connectez-vous pour envoyer vos données de santé',
+      docTitle:'TABLEAU DE BORD MÉDECIN', docSub:'Dossiers patients • Rapports • Messagerie sécurisée',
+      patientLogin:'Connexion Patient', patientLoginSub:'Accédez à votre portail de santé',
+      loginBtn:'Se connecter →', patientId:'ID Patient', password:'Mot de passe',
+      selectDoctor:'Sélectionner Médecin', personalNote:'Note personnelle au médecin',
+      sendReport:'Envoyer rapport de santé →', reportSent:'Rapport envoyé avec succès!',
+      reportSentSub:'Votre médecin a été notifié.',
+      msgsFromDoc:'Messages du médecin', voiceListening:'EN ÉCOUTE...',
+      voiceHint:'Parlez dans votre langue', rpiOn:'RPi ON', rpiOff:'RPi OFF',
+      pdfReport:'Rapport PDF', locateMe:'Ma Position', searchDoc:'Rechercher par nom ou spécialité...',
+      noteHint:'Décrivez vos symptômes, préoccupations ou informations supplémentaires...',
+      skinImages:'Joindre des images de peau', skinCapture:'Capturer', skinUpload:'Télécharger image',
+      frontCam:'Caméra avant', backCam:'Caméra arrière', secureNote:'🔒 Chiffré et envoyé en toute sécurité.',
+      available:'Disponible', busy:'Occupé', call:'Appeler', sendReport2:'Envoyer rapport',
+      normal:'Normal', highHR:'FC Élevée', lowHR:'FC Basse', highBP:'TA Élevée', lowBP:'TA Basse',
+      fever:'Fièvre', lowTemp:'Temp Basse', lowO2:'O₂ Bas', borderline:'Limite',
+    }
+  },
+  ar: {
+    code:'ar-SA', name:'العربية',
+    t: {
+      dashTitle:'مراقب العلامات الحيوية', dashSub:'محور الاستشعار RPi • البث في الوقت الفعلي',
+      heartRate:'معدل ضربات القلب', bloodPressure:'ضغط الدم', temperature:'درجة الحرارة', spo2:'SpO₂ (أكسجين الدم)',
+      findDoctors:'إيجاد أقرب الأطباء', findSub:'خريطة فورية • اتصال مباشر • إرسال تقرير',
+      portalTitle:'بوابة الصحة للمريض', portalSub:'سجل الدخول لإرسال بياناتك الصحية',
+      docTitle:'لوحة تحكم الطبيب', docSub:'سجلات المرضى • التقارير • المراسلة الآمنة',
+      patientLogin:'تسجيل دخول المريض', patientLoginSub:'الوصول إلى بوابتك الصحية',
+      loginBtn:'تسجيل الدخول →', patientId:'معرف المريض', password:'كلمة المرور',
+      selectDoctor:'اختر طبيباً', personalNote:'ملاحظة شخصية للطبيب',
+      sendReport:'إرسال التقرير الصحي →', reportSent:'تم إرسال التقرير بنجاح!',
+      reportSentSub:'تم إخطار طبيبك.',
+      msgsFromDoc:'رسائل من الطبيب', voiceListening:'جاري الاستماع...',
+      voiceHint:'تحدث بلغتك المختارة', rpiOn:'RPi تشغيل', rpiOff:'RPi إيقاف',
+      pdfReport:'تقرير PDF', locateMe:'موقعي', searchDoc:'البحث بالاسم أو التخصص...',
+      noteHint:'صف أعراضك أو مخاوفك أو أي معلومات إضافية...',
+      skinImages:'إرفاق صور الجلد', skinCapture:'التقاط', skinUpload:'رفع صورة',
+      frontCam:'الكاميرا الأمامية', backCam:'الكاميرا الخلفية', secureNote:'🔒 مشفرة ومرسلة بأمان.',
+      available:'متاح', busy:'مشغول', call:'اتصال', sendReport2:'إرسال تقرير',
+      normal:'طبيعي', highHR:'HR مرتفع', lowHR:'HR منخفض', highBP:'BP مرتفع', lowBP:'BP منخفض',
+      fever:'حمى', lowTemp:'حرارة منخفضة', lowO2:'أكسجين منخفض', borderline:'حدي',
+    }
+  },
+};
+
+// Fallback languages (use English translations)
+['te','bn','kn','zh'].forEach(code => {
+  LANGUAGES[code] = { ...LANGUAGES.en, code: code+'-IN', name: code.toUpperCase() };
+});
+
+APP.currentLang = 'en';
+
+function t(key) {
+  return LANGUAGES[APP.currentLang]?.t[key] || LANGUAGES.en.t[key] || key;
+}
+
+function toggleLangDropdown() {
+  const dd = document.getElementById('langDropdown');
+  dd.classList.toggle('show');
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', function handler(e) {
+      if(!document.getElementById('langWrap').contains(e.target)) {
+        dd.classList.remove('show');
+        document.removeEventListener('click', handler);
+      }
+    });
+  }, 0);
+}
+
+function setLanguage(code, flag, shortCode) {
+  APP.currentLang = code;
+  document.getElementById('langFlag').textContent  = flag;
+  document.getElementById('langCode').textContent  = shortCode;
+  document.getElementById('langDropdown').classList.remove('show');
+
+  // Mark active
+  document.querySelectorAll('.lang-option').forEach(el => el.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+
+  // RTL for Arabic
+  document.body.dir = (code === 'ar') ? 'rtl' : 'ltr';
+
+  applyTranslations();
+  addLog('ok', `Language changed to ${LANGUAGES[code]?.name || code}`);
+}
+
+function applyTranslations() {
+  const lang = APP.currentLang;
+  // Dashboard
+  const dashT = document.querySelector('#page-dashboard .dash-title');
+  const dashS = document.querySelector('#page-dashboard .dash-header > div > div:nth-child(2)');
+  if(dashT) dashT.textContent = t('dashTitle');
+  if(dashS) dashS.textContent = t('dashSub');
+
+  // Vital labels
+  const labels = document.querySelectorAll('.vital-label');
+  const keys   = ['heartRate','bloodPressure','temperature','spo2'];
+  labels.forEach((el,i) => { if(keys[i]) el.textContent = t(keys[i]); });
+
+  // Nav buttons
+  const rpiLbl = document.getElementById('rpiPowerLabel');
+  if(rpiLbl) rpiLbl.textContent = APP.rpiOnline ? t('rpiOn') : t('rpiOff');
+  const pdfLbl = document.getElementById('pdfBtnLabel');
+  if(pdfLbl) pdfLbl.textContent = t('pdfReport');
+
+  // Find doctors page
+  const fdT = document.querySelector('#page-doctors .dash-title, #page-doctors [style*="font-disp"]');
+  if(fdT) fdT.textContent = t('findDoctors');
+
+  // Search placeholder
+  const srch = document.getElementById('docSearch');
+  if(srch) srch.placeholder = '🔍  ' + t('searchDoc');
+
+  // Patient portal
+  const noteArea = document.getElementById('patientNote');
+  if(noteArea) noteArea.placeholder = t('noteHint');
+
+  // Camera buttons
+  const camBtns = document.querySelectorAll('.cam-btn');
+  if(camBtns[0]) camBtns[0].innerHTML = '📷 ' + t('frontCam');
+  if(camBtns[1]) camBtns[1].innerHTML = '📸 ' + t('backCam');
+  if(camBtns[2]) camBtns[2].innerHTML = '🖼️ ' + t('skinUpload');
+
+  // Voice overlay
+  const voiceHint = document.getElementById('voiceHint');
+  if(voiceHint) voiceHint.textContent = t('voiceHint');
+}
+
+/* ============================================================
+   VOICE RECOGNITION
+   ============================================================ */
+APP.voiceRec     = null;
+APP.voiceActive  = false;
+APP.voiceTarget  = null; // 'note' = patient note textarea, 'global' = global mode
+
+function toggleVoice() {
+  if(APP.voiceActive) { stopVoice(); return; }
+  startVoice('global');
+}
+
+function startNoteVoice() {
+  if(APP.voiceActive) { stopVoice(); return; }
+  startVoice('note');
+}
+
+function startVoice(target) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SpeechRecognition) {
+    showLocationToast('⚠️ Voice recognition not supported in this browser', 'warn');
+    return;
+  }
+
+  APP.voiceTarget = target;
+  APP.voiceActive = true;
+
+  const rec = new SpeechRecognition();
+  APP.voiceRec = rec;
+
+  const langCode = LANGUAGES[APP.currentLang]?.code || 'en-IN';
+  rec.lang            = langCode;
+  rec.interimResults  = true;
+  rec.continuous      = true;
+  rec.maxAlternatives = 1;
+
+  // Update UI
+  const btn = document.getElementById('voiceBtn');
+  const notebtn = document.getElementById('noteVoiceBtn');
+  btn.classList.add('listening');
+  document.getElementById('voiceBtnLabel').textContent = '● REC';
+  if(notebtn) { notebtn.style.background='rgba(167,139,250,0.3)'; notebtn.style.borderColor='#a78bfa'; }
+
+  // Show overlay
+  document.getElementById('voiceOverlay').classList.add('show');
+  document.getElementById('voiceTitle').textContent = t('voiceListening');
+  document.getElementById('voiceText').textContent  = '...';
+  document.getElementById('voiceHint').textContent  = t('voiceHint');
+
+  rec.onresult = (event) => {
+    let interim = '', final = '';
+    for(let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      if(event.results[i].isFinal) final += transcript;
+      else interim += transcript;
+    }
+    document.getElementById('voiceText').textContent = interim || final || '...';
+
+    if(final) {
+      if(target === 'note') {
+        const ta = document.getElementById('patientNote');
+        if(ta) ta.value += (ta.value ? ' ' : '') + final;
+      } else {
+        // Global: navigate by voice commands
+        handleVoiceCommand(final.toLowerCase().trim());
+      }
+    }
+  };
+
+  rec.onerror = (e) => {
+    let msg = 'Voice error';
+    if(e.error === 'not-allowed')  msg = 'Microphone access denied';
+    if(e.error === 'no-speech')    msg = 'No speech detected';
+    if(e.error === 'network')      msg = 'Network error — check connection';
+    showLocationToast('⚠️ ' + msg, 'warn');
+    stopVoice();
+  };
+
+  rec.onend = () => {
+    if(APP.voiceActive) rec.start(); // keep listening
+  };
+
+  rec.start();
+}
+
+function stopVoice() {
+  APP.voiceActive = false;
+  if(APP.voiceRec) { try{ APP.voiceRec.stop(); }catch(e){} APP.voiceRec = null; }
+  document.getElementById('voiceBtn').classList.remove('listening');
+  document.getElementById('voiceBtnLabel').textContent = 'Voice';
+  document.getElementById('voiceOverlay').classList.remove('show');
+  const notebtn = document.getElementById('noteVoiceBtn');
+  if(notebtn) { notebtn.style.background=''; notebtn.style.borderColor=''; }
+}
+
+function handleVoiceCommand(cmd) {
+  // Navigation commands in multiple languages
+  const nav = {
+    dashboard: ['dashboard','home','vitals','डैशबोर्ड','होम','डॅशबोर्ड','ডাশবোর্ড','inicio','accueil','لوحة التحكم'],
+    doctors:   ['doctor','doctors','find doctor','map','डॉक्टर','डॉक्टर खोजें','மருத்துவர்','médico','médecin','طبيب'],
+    portal:    ['portal','send report','health portal','पोर्टल','रिपोर्ट','போர்டல்','portail','بوابة'],
+    docview:   ['doctor view','doctor login','doctor dashboard','doctor portal'],
+  };
+
+  for(const [page, cmds] of Object.entries(nav)) {
+    if(cmds.some(c => cmd.includes(c))) {
+      const tabs = document.querySelectorAll('.nav-tab');
+      const pageMap = { dashboard:0, doctors:1, portal:2, docview:3 };
+      showPage(page, tabs[pageMap[page]]);
+      showLocationToast('🎙️ Navigated to ' + page, 'success');
+      document.getElementById('voiceText').textContent = '→ ' + page.toUpperCase();
+      return;
+    }
+  }
+}
+
+/* ============================================================
+   DARK / LIGHT MODE TOGGLE
+   ============================================================ */
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light-mode');
+  document.getElementById('themeLabel').textContent  = isLight ? '☀️ Light' : '🌙 Dark';
+  document.getElementById('toggleThumb').textContent = isLight ? '☀️' : '🌙';
+  // Update chart colors
+  updateChartTheme(isLight);
+}
+
+function updateChartTheme(isLight) {
+  const gridColor  = isLight ? 'rgba(0,0,0,0.08)'  : 'rgba(26,46,69,0.6)';
+  const tickColor  = isLight ? '#546e7a'            : '#7a9ab5';
+  [hrChart, tempChart].forEach(chart => {
+    if(!chart) return;
+    chart.options.scales.x.grid.color  = gridColor;
+    chart.options.scales.y.grid.color  = gridColor;
+    chart.options.scales.x.ticks.color = tickColor;
+    chart.options.scales.y.ticks.color = tickColor;
+    chart.update('none');
+  });
+}
+
+/* ============================================================
+   RPI POWER ON / OFF
+   ============================================================ */
+function toggleRPi() {
+  APP.rpiOnline = !APP.rpiOnline;
+  const btn    = document.getElementById('rpiPowerBtn');
+  const dot    = document.getElementById('rpiDot');
+  const status = document.getElementById('rpiStatus');
+  const connSt = document.getElementById('rpiConnStatus');
+  const overlay = document.getElementById('rpiOfflineOverlay');
+  const lbl    = document.getElementById('rpiPowerLabel');
+
+  if(APP.rpiOnline) {
+    // Power ON
+    btn.classList.add('powered');
+    lbl.textContent = 'RPi ON';
+    dot.classList.add('online');
+    status.textContent = 'RPi: Online';
+    if(connSt){ connSt.textContent = 'ONLINE'; connSt.style.color = 'var(--accent2)'; }
+    overlay.classList.remove('show');
+    addLog('ok', 'RPi powered ON — sensors resuming');
+    APP.sensorInterval = setInterval(updateDashboard, 1000);
+  } else {
+    // Power OFF
+    btn.classList.remove('powered');
+    lbl.textContent = 'RPi OFF';
+    dot.classList.remove('online');
+    status.textContent = 'RPi: Offline';
+    if(connSt){ connSt.textContent = 'OFFLINE'; connSt.style.color = 'var(--accent3)'; }
+    overlay.classList.add('show');
+    addLog('err', 'RPi powered OFF — data stream stopped');
+    clearInterval(APP.sensorInterval);
+  }
+}
+
+/* ============================================================
+   PDF REPORT
+   ============================================================ */
+function getStatusInfo(type, val) {
+  if(type==='hr')   return val<60?['warn','Low HR']:val>100?['danger','High HR']:['normal','Normal'];
+  if(type==='sbp')  return val<90?['warn','Low BP']:val>140?['danger','High BP']:['normal','Normal'];
+  if(type==='temp') return val<36?['warn','Low Temp']:val>37.5?['danger','Fever']:['normal','Normal'];
+  if(type==='spo2') return val<94?['danger','Low O₂']:val<96?['warn','Borderline']:['normal','Normal'];
+  return ['normal','Normal'];
+}
+
+function openPdfPreview() {
+  const d    = APP.sensorData;
+  const now  = new Date();
+  const dateStr = now.toLocaleDateString('en-IN', {day:'2-digit',month:'long',year:'numeric'});
+  const timeStr = now.toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const reportId = 'VW-RPT-' + now.getFullYear() + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0') + '-' + Math.floor(Math.random()*9000+1000);
+
+  const [hrCls]   = getStatusInfo('hr',   d.hr);
+  const [bpCls]   = getStatusInfo('sbp',  d.sbp);
+  const [tmpCls]  = getStatusInfo('temp', d.temp);
+  const [spo2Cls] = getStatusInfo('spo2', d.spo2);
+
+  // Build history table rows (last 10 readings)
+  const histLabels = hrChart.data.labels.slice(-10);
+  const histHR     = hrChart.data.datasets[0].data.slice(-10);
+  const histTemp   = tempChart.data.datasets[0].data.slice(-10);
+
+  const histRows = histLabels.map((lbl,i) => `
+    <tr>
+      <td>${lbl}</td>
+      <td>${histHR[i] || '--'}</td>
+      <td>${d.sbp}/${d.dbp}</td>
+      <td>${histTemp[i] || '--'}</td>
+      <td>${d.spo2}</td>
+    </tr>
+  `).join('');
+
+  document.getElementById('pdfContent').innerHTML = `
+    <!-- HEADER -->
+    <div class="pdf-top-header">
+      <div class="pdf-logo-area">
+        <div class="pdf-logo-icon">💓</div>
+        <div>
+          <div class="pdf-logo-name">VitalWatch</div>
+          <div class="pdf-logo-sub">Health Monitoring System</div>
+        </div>
+      </div>
+      <div class="pdf-report-info">
+        <div class="ri-title">Vital Health Report</div>
+        <div class="ri-id">Report ID: ${reportId}</div>
+        <div class="ri-date">Generated: ${dateStr} at ${timeStr}</div>
+        <div class="ri-date">Source: Raspberry Pi 4B · 192.168.1.105</div>
+      </div>
+    </div>
+
+    <!-- PATIENT INFO -->
+    <div class="pdf-patient-box">
+      <div class="pdf-patient-avi">R</div>
+      <div>
+        <div class="pdf-patient-name">Rahul Sharma</div>
+        <div class="pdf-patient-meta">Patient ID: VW-2024-001 &nbsp;|&nbsp; Age: 34 &nbsp;|&nbsp; 📍 Kalyan, Maharashtra, India</div>
+        <div class="pdf-patient-meta" style="margin-top:4px;">Monitoring Device: RPi 4B + DHT22 + MAX30102 &nbsp;|&nbsp; Status: <span style="color:#276749;font-weight:700;">● Active</span></div>
+      </div>
+    </div>
+
+    <!-- CURRENT VITALS -->
+    <div class="pdf-section-title">📊 Current Vital Signs</div>
+    <div class="pdf-vitals-grid">
+      <div class="pdf-vital-box alert-${hrCls}">
+        <div class="pdf-vital-val ${hrCls}">${d.hr || '--'}</div>
+        <div class="pdf-vital-lbl">Heart Rate</div>
+        <div class="pdf-vital-unit">BPM · MAX30102</div>
+        <span class="pdf-vital-status ${hrCls}">${getStatusInfo('hr',d.hr)[1]}</span>
+      </div>
+      <div class="pdf-vital-box alert-${bpCls}">
+        <div class="pdf-vital-val ${bpCls}" style="font-size:20px;margin-top:3px;">${d.sbp || '--'}/${d.dbp || '--'}</div>
+        <div class="pdf-vital-lbl">Blood Pressure</div>
+        <div class="pdf-vital-unit">mmHg · MAX30102</div>
+        <span class="pdf-vital-status ${bpCls}">${getStatusInfo('sbp',d.sbp)[1]}</span>
+      </div>
+      <div class="pdf-vital-box alert-${tmpCls}">
+        <div class="pdf-vital-val ${tmpCls}">${d.temp || '--'}°</div>
+        <div class="pdf-vital-lbl">Body Temperature</div>
+        <div class="pdf-vital-unit">Celsius · DHT22</div>
+        <span class="pdf-vital-status ${tmpCls}">${getStatusInfo('temp',d.temp)[1]}</span>
+      </div>
+      <div class="pdf-vital-box alert-${spo2Cls}">
+        <div class="pdf-vital-val ${spo2Cls}">${d.spo2 || '--'}%</div>
+        <div class="pdf-vital-lbl">SpO₂ (Blood O₂)</div>
+        <div class="pdf-vital-unit">Saturation · MAX30102</div>
+        <span class="pdf-vital-status ${spo2Cls}">${getStatusInfo('spo2',d.spo2)[1]}</span>
+      </div>
+    </div>
+
+    <!-- HISTORY TABLE -->
+    <div class="pdf-section-title">📈 Recent Readings History (Last 10)</div>
+    <table class="pdf-history-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Heart Rate (BPM)</th>
+          <th>Blood Pressure</th>
+          <th>Temperature (°C)</th>
+          <th>SpO₂ (%)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${histRows || '<tr><td colspan="5" style="text-align:center;color:#a0aec0;">No history yet</td></tr>'}
+      </tbody>
+    </table>
+
+    <!-- RPi INFO -->
+    <div class="pdf-section-title">🖥️ Device & Sensor Information</div>
+    <div class="pdf-rpi-grid">
+      <div class="pdf-rpi-item"><div class="pdf-rpi-key">Device</div><div class="pdf-rpi-val">Raspberry Pi 4B</div></div>
+      <div class="pdf-rpi-item"><div class="pdf-rpi-key">IP Address</div><div class="pdf-rpi-val">192.168.1.105</div></div>
+      <div class="pdf-rpi-item"><div class="pdf-rpi-key">Connection</div><div class="pdf-rpi-val" style="color:#276749;">${APP.rpiOnline ? 'ONLINE' : 'OFFLINE'}</div></div>
+      <div class="pdf-rpi-item"><div class="pdf-rpi-key">Sensors</div><div class="pdf-rpi-val">DHT22, MAX30102</div></div>
+      <div class="pdf-rpi-item"><div class="pdf-rpi-key">Data Rate</div><div class="pdf-rpi-val">1 Hz</div></div>
+      <div class="pdf-rpi-item"><div class="pdf-rpi-key">Uptime</div><div class="pdf-rpi-val">${document.getElementById('rpiUptime').textContent}</div></div>
+    </div>
+
+    <!-- NOTES -->
+    <div class="pdf-section-title">📝 Clinical Notes</div>
+    <div class="pdf-notes-box">
+      ⚠️ <strong>Important:</strong> This report is auto-generated from IoT sensor readings via Raspberry Pi.
+      Values should be interpreted by a qualified medical professional.
+      Normal ranges: HR 60–100 BPM · BP 90/60–140/90 mmHg · Temp 36–37.5°C · SpO₂ 95–100%.
+    </div>
+
+    <!-- FOOTER -->
+    <div class="pdf-footer">
+      <div>VitalWatch Health Monitoring System &nbsp;|&nbsp; Confidential Patient Data</div>
+      <div class="pdf-watermark">VITALWATCH · ${reportId}</div>
+      <div>Page 1 of 1</div>
+    </div>
+  `;
+
+  document.getElementById('pdfModal').classList.add('show');
+}
+
+function closePdfModal() {
+  document.getElementById('pdfModal').classList.remove('show');
+}
+
+async function downloadPDF() {
+  const btn = document.getElementById('pdfDownloadBtn');
+  btn.textContent = '⏳ Generating...';
+  btn.style.opacity = '0.7';
+  btn.style.pointerEvents = 'none';
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const content   = document.getElementById('pdfContent');
+    const canvas    = await html2canvas(content, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const pdf     = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+
+    const pdfW  = pdf.internal.pageSize.getWidth();
+    const pdfH  = pdf.internal.pageSize.getHeight();
+    const ratio = canvas.height / canvas.width;
+    const imgH  = pdfW * ratio;
+
+    let position = 0;
+    let remaining = imgH;
+
+    // Multi-page support
+    while(remaining > 0) {
+      pdf.addImage(imgData, 'PNG', 0, position, pdfW, imgH);
+      remaining -= pdfH;
+      if(remaining > 0) {
+        pdf.addPage();
+        position -= pdfH;
+      }
+    }
+
+    const now = new Date();
+    const fname = `VitalWatch_Report_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}.pdf`;
+    pdf.save(fname);
+
+  } catch(e) {
+    alert('PDF generation failed: ' + e.message);
+  } finally {
+    btn.textContent = '⬇️ Download PDF';
+    btn.style.opacity = '';
+    btn.style.pointerEvents = '';
+  }
+}
+
+// Close modal on outside click
+document.addEventListener('click', function(e) {
+  const modal = document.getElementById('pdfModal');
+  if(modal && modal.classList.contains('show') && e.target === modal) {
+    closePdfModal();
+  }
+});
+
+/* ============================================================
+   INIT
+   ============================================================ */
+window.onload = () => {
+  initCharts();
+  updateDashboard();
+  APP.sensorInterval = setInterval(updateDashboard, 1000);
+};
+</script>
+
+<!-- Image Lightbox -->
+<div class="img-lightbox" id="imgLightbox" onclick="closeLightbox()">
+  <img src="" id="lightboxImg" alt="Skin Image">
+  <button class="img-lightbox-close" onclick="closeLightbox()">✕ Close</button>
+</div>
+
+</body>
+</html>
